@@ -19,7 +19,8 @@ let clientProcess;
 let isQuitting = false;
 
 // Path to the watchdog client executable
-const clientPath = path.join(path.dirname(app.getAppPath()), 'watchdog-client', 'index.js');
+// const clientPath = path.join(path.dirname(app.getAppPath()), 'watchdog-client', 'index.js');
+const clientPath = path.join(app.getAppPath(), 'watchdog-client', 'index.js');
 log.info(`Client path: ${clientPath}`);
 
 // Check if the client path exists
