@@ -214,3 +214,9 @@ body {
 .log-entry.error {
   color: #f44336;
 } 
+
+#app-logo {
+  margin: 0 auto;
+  height: 36px;
+  padding-bottom: 10px;
+}

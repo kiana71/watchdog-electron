@@ -1,17 +1,16 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, session, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const log = require('electron-log');
 const Store = require('electron-store');
-const fs = require('fs');
+
 
 // Configure logging
 log.transports.file.level = 'info';
 log.info('Application starting...');
-
 // Initialize settings store
 const store = new Store();
-
 // Keep a global reference of the window and tray objects
 let mainWindow;
 let tray;
@@ -60,7 +59,11 @@ function createWindow() {
 
   // Open DevTools in development mode (but don't detach it)
   if (process.argv.includes('--dev')) {
-    mainWindow.webContents.openDevTools();
+    // Open DevTools in a separate window, specifying its mode
+    mainWindow.webContents.openDevTools({
+      mode: 'detach', // Open in a separate window
+      activate: true  // Focus the DevTools window when it opens
+    });
   }
 
   // Only show the window when it's ready
@@ -81,9 +84,6 @@ function createWindow() {
       return false;
     }
   });
-
-  // Create system tray
-  createTray();
   
   // Start the watchdog client service
   // Commented out for initial debugging
@@ -91,7 +91,40 @@ function createWindow() {
 }
 
 function createTray() {
-  tray = new Tray(path.join(__dirname, 'assets', 'icons', 'tray-icon.png'));
+  const trayIconPath = path.join(__dirname, 'assets', 'icons', 'tray-icon.png');
+  
+  // Check if tray icon exists and has content
+  try {
+    const stats = fs.statSync(trayIconPath);
+    if (stats.size > 0) {
+      // On macOS, create a colored icon
+      if (process.platform === 'darwin') {
+        // Create a template image - this will adapt to light/dark mode
+        const image = nativeImage.createFromPath(trayIconPath);
+        // Force the icon to be visible with a specific size
+        const resizedImage = image.resize({ width: 22, height: 22 });
+        tray = new Tray(resizedImage);
+        // On macOS, setting a title can make it more visible
+        tray.setTitle('WD');
+      } else {
+        tray = new Tray(trayIconPath);
+      }
+    } else {
+      console.warn('Tray icon file exists but is empty (0 bytes). Using text-based tray item.');
+      tray = new Tray(nativeImage.createEmpty());
+      // On macOS, setting a title can make it more visible
+      if (process.platform === 'darwin') {
+        tray.setTitle('WD');
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load tray icon:', error.message);
+    tray = new Tray(nativeImage.createEmpty());
+    // On macOS, setting a title can make it more visible
+    if (process.platform === 'darwin') {
+      tray.setTitle('WD');
+    }
+  }
   
   const contextMenu = Menu.buildFromTemplate([
     { 
@@ -189,6 +222,12 @@ function stopClientService() {
 // Create window when Electron app is ready
 app.whenReady().then(() => {
   createWindow();
+  
+  // On Windows, create the tray icon (it's the primary target platform)
+  // On macOS, only create it for development/testing
+  if (process.platform === 'win32' || process.env.NODE_ENV === 'development') {
+    createTray();
+  }
   
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

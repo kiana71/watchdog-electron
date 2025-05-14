@@ -4,6 +4,10 @@ import { exec } from 'child_process';
 import osUtils from 'node-os-utils';
 import path from 'path';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import si from 'systeminformation';
+import axios from 'axios';
+import { execSync } from 'child_process';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -24,6 +28,17 @@ class WatchdogClient {
     this.version = '1.0.0';
     this.isConnected = false;
     this.reconnectAttempts = 0;
+    
+    // Initialize other properties that will be populated asynchronously
+    this.publicIpAddress = null;
+    this.buildNumber = null;
+    this.cpu = null;
+    this.totalMemory = null;
+    this.storage = null;
+    this.graphicsCard = null;
+    
+    // Fetch initial system information
+    this.fetchAdditionalSystemInfo();
   }
 
   getIPAddress() {
@@ -48,6 +63,83 @@ class WatchdogClient {
       }
     }
     return '00:00:00:00:00:00';
+  }
+
+  async fetchPublicIp() {
+    try {
+      const response = await axios.get('https://api.ipify.org?format=json');
+      return response.data.ip;
+    } catch (error) {
+      console.error('Failed to fetch public IP:', error);
+      return null;
+    }
+  }
+
+  async fetchAdditionalSystemInfo() {
+    try {
+      // Get public IP address
+      this.publicIpAddress = await this.fetchPublicIp();
+      
+      // Get CPU information
+      const cpuInfo = await si.cpu();
+      this.cpu = `${cpuInfo.manufacturer} ${cpuInfo.brand} @ ${cpuInfo.speed}GHz`;
+      
+      // Get total memory
+      const memInfo = await si.mem();
+      this.totalMemory = Math.round(memInfo.total / (1024 * 1024)); // Convert to MB
+      
+      // Get storage information
+      const diskInfo = await si.diskLayout();
+      const fsInfo = await si.fsSize();
+      if (fsInfo.length > 0) {
+        const mainDisk = fsInfo[0];
+        this.storage = {
+          total: Math.round(mainDisk.size / (1024 * 1024 * 1024)), // Convert to GB
+          free: Math.round(mainDisk.available / (1024 * 1024 * 1024)), // Convert to GB
+          type: diskInfo.length > 0 ? diskInfo[0].type : 'Unknown'
+        };
+      }
+      
+      // Get graphics card information
+      const graphicsInfo = await si.graphics();
+      if (graphicsInfo.controllers.length > 0) {
+        const mainGPU = graphicsInfo.controllers[0];
+        this.graphicsCard = `${mainGPU.vendor} ${mainGPU.model}`;
+      }
+      
+      // Get OS build number
+      this.buildNumber = await this.getOSBuildNumber();
+      
+      console.log('System information collected successfully');
+    } catch (error) {
+      console.error('Error collecting system information:', error);
+    }
+  }
+
+  async getOSBuildNumber() {
+    const platform = os.platform();
+    
+    try {
+      if (platform === 'win32') {
+        // Windows
+        const output = execSync('ver').toString();
+        const match = output.match(/\d+\.\d+\.\d+/);
+        return match ? match[0] : null;
+      } else if (platform === 'darwin') {
+        // macOS
+        const output = execSync('sw_vers -buildVersion').toString();
+        return output.trim();
+      } else if (platform === 'linux') {
+        // Linux
+        const output = execSync('uname -r').toString();
+        return output.trim();
+      }
+    } catch (error) {
+      console.error('Error getting OS build number:', error);
+      return null;
+    }
+    
+    return null;
   }
 
   getOsInfo() {
@@ -136,13 +228,22 @@ class WatchdogClient {
   }
 
   async sendClientInfo() {
+    // Refresh system information before sending
+    await this.fetchAdditionalSystemInfo();
+    
     const info = {
       type: 'client_info',
       data: {
         computerName: this.computerName,
         ipAddress: this.ipAddress,
+        publicIpAddress: this.publicIpAddress,
         macAddress: this.macAddress,
         osName: this.osName,
+        buildNumber: this.buildNumber,
+        cpu: this.cpu,
+        totalMemory: this.totalMemory,
+        storage: this.storage,
+        graphicsCard: this.graphicsCard,
         version: this.version,
         uptimeHours: os.uptime() / 3600,
         cpuUsage: await osUtils.cpu.usage(),
@@ -168,6 +269,9 @@ class WatchdogClient {
       case 'shutdown':
         await this.shutdownSystem();
         break;
+      case 'refresh_info':
+        await this.sendClientInfo();
+        break;
       default:
         console.log('Unknown command:', message.type);
     }
@@ -175,7 +279,18 @@ class WatchdogClient {
 
   async rebootSystem() {
     this.send({ type: 'reboot_initiated' });
-    exec('shutdown /r /t 5', (error) => {
+    const platform = os.platform();
+    let command = '';
+    
+    if (platform === 'win32') {
+      command = 'shutdown /r /t 5';
+    } else if (platform === 'darwin') {
+      command = 'sudo shutdown -r +1';
+    } else if (platform === 'linux') {
+      command = 'sudo shutdown -r +1';
+    }
+    
+    exec(command, (error) => {
       if (error) {
         console.error('Reboot error:', error);
         this.send({ type: 'reboot_failed', error: error.message });
@@ -185,7 +300,18 @@ class WatchdogClient {
 
   async shutdownSystem() {
     this.send({ type: 'shutdown_initiated' });
-    exec('shutdown /s /t 5', (error) => {
+    const platform = os.platform();
+    let command = '';
+    
+    if (platform === 'win32') {
+      command = 'shutdown /s /t 5';
+    } else if (platform === 'darwin') {
+      command = 'sudo shutdown -h +1';
+    } else if (platform === 'linux') {
+      command = 'sudo shutdown -h +1';
+    }
+    
+    exec(command, (error) => {
       if (error) {
         console.error('Shutdown error:', error);
         this.send({ type: 'shutdown_failed', error: error.message });
