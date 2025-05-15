@@ -40,30 +40,36 @@ function createWindow() {
 
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 600,
-    height: 500,
+    width: 800, // Wider to fit DevTools
+    height: 600, // Taller to fit more content
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      devTools: true // Explicitly enable DevTools
     },
     icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
-    frame: false,
+    frame: true, // Enable frame for easier development
     transparent: false,
-    resizable: false,
+    resizable: true, // Allow resizing for development
     show: false
   });
 
   // Load the index.html file
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  // Open DevTools in development mode (but don't detach it)
+  // Open DevTools in development mode
   if (process.argv.includes('--dev')) {
-    // Open DevTools in a separate window, specifying its mode
-    mainWindow.webContents.openDevTools({
-      mode: 'detach', // Open in a separate window
-      activate: true  // Focus the DevTools window when it opens
-    });
+    // Open DevTools in a detached window for better visibility
+    setTimeout(() => {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+      console.log('DevTools opened in detached mode');
+      log.info('DevTools opened in detached mode');
+    }, 1000); // Short delay to ensure window is fully loaded
+    
+    // Log that we're in development mode
+    console.log('Running in development mode with DevTools enabled');
+    log.info('Running in development mode with DevTools enabled');
   }
 
   // Only show the window when it's ready
@@ -86,8 +92,7 @@ function createWindow() {
   });
   
   // Start the watchdog client service
-  // Commented out for initial debugging
-  // startClientService();
+  startClientService();
 }
 
 function createTray() {
@@ -170,30 +175,62 @@ function createTray() {
 
 function startClientService() {
   log.info('Starting client service:', clientPath);
+  console.log('Starting client service:', clientPath);
   
   try {
+    // Check if the client path exists before starting
+    if (!fs.existsSync(clientPath)) {
+      const error = `Client not found at: ${clientPath}`;
+      log.error(error);
+      console.error(error);
+      if (mainWindow) {
+        mainWindow.webContents.send('client-error', error);
+      }
+      return;
+    }
+    
+    // Set environment variables for the client process
+    const env = {
+      ...process.env,
+      NODE_ENV: process.argv.includes('--dev') ? 'development' : 'production',
+      SERVER_URL: 'ws://localhost:8080', // Force the server URL for testing
+      HEARTBEAT_INTERVAL: '30000',
+    };
+    
+    console.log('Client environment:', {
+      NODE_ENV: env.NODE_ENV,
+      SERVER_URL: env.SERVER_URL,
+      HEARTBEAT_INTERVAL: env.HEARTBEAT_INTERVAL
+    });
+    
     // Spawn the Node.js process for the watchdog client
     clientProcess = spawn('node', [clientPath], {
       stdio: 'pipe',
-      detached: false
+      detached: false,
+      env: env
     });
     
     clientProcess.stdout.on('data', (data) => {
-      log.info(`Client stdout: ${data}`);
+      const message = data.toString().trim();
+      log.info(`Client stdout: ${message}`);
+      console.log(`Client stdout: ${message}`);
       if (mainWindow) {
-        mainWindow.webContents.send('client-log', data.toString());
+        mainWindow.webContents.send('client-log', message);
       }
     });
     
     clientProcess.stderr.on('data', (data) => {
-      log.error(`Client stderr: ${data}`);
+      const error = data.toString().trim();
+      log.error(`Client stderr: ${error}`);
+      console.error(`Client stderr: ${error}`);
       if (mainWindow) {
-        mainWindow.webContents.send('client-error', data.toString());
+        mainWindow.webContents.send('client-error', error);
       }
     });
     
     clientProcess.on('close', (code) => {
       log.info(`Client process exited with code ${code}`);
+      console.log(`Client process exited with code ${code}`);
       if (mainWindow) {
         mainWindow.webContents.send('client-status', { running: false, exitCode: code });
       }
@@ -205,6 +242,7 @@ function startClientService() {
     
   } catch (error) {
     log.error('Failed to start client service:', error);
+    console.error('Failed to start client service:', error);
     if (mainWindow) {
       mainWindow.webContents.send('client-error', error.message);
     }

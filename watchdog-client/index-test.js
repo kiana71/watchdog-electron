@@ -1,54 +1,26 @@
-import WebSocket from 'ws';
+// This is a modified version of index.js for testing data collection without a server
 import os from 'os';
 import { exec } from 'child_process';
 import osUtils from 'node-os-utils';
-import path from 'path';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import si from 'systeminformation';
 import axios from 'axios';
 import { execSync } from 'child_process';
-import { config } from './config.js';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
-// Get the directory path for the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Load environment variables from .env file
+dotenv.config();
 
-// Read package.json to get the actual version
-let packageVersion = '1.0.0'; // Default fallback version
-try {
-  const packageJsonPath = join(__dirname, 'package.json');
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-  packageVersion = packageJson.version;
-  console.log(`Watchdog Client Version: ${packageVersion}`);
-} catch (error) {
-  console.error('Failed to read package.json version:', error);
-}
+console.log(`Starting Watchdog Client Test Mode...`);
+console.log(`This version only tests data collection without server connection`);
 
-// Use the configuration values from the config module
-const SERVER_URL = config.serverUrl;
-const HEARTBEAT_INTERVAL = config.heartbeatInterval;
-// Enable Windows simulation mode for testing on non-Windows platforms
-const SIMULATE_WINDOWS = process.env.SIMULATE_WINDOWS === 'true';
-
-console.log(`Starting Watchdog Client...`);
-console.log(`Server URL: ${SERVER_URL}`);
-console.log(`Heartbeat Interval: ${HEARTBEAT_INTERVAL}ms`);
-console.log(`Environment: ${config.environment}`);
-if (SIMULATE_WINDOWS) {
-  console.log('Running in Windows simulation mode for testing');
-}
-
-class WatchdogClient {
+class WatchdogClientTest {
   constructor() {
     this.computerName = os.hostname();
     this.ipAddress = this.getIPAddress();
     this.macAddress = this.getMacAddress();
     this.osName = this.getOsInfo();
-    this.version = packageVersion; // Use the version from package.json
-    this.isConnected = false;
-    this.reconnectAttempts = 0;
+    this.version = '1.0.0';
     
     // Initialize other properties that will be populated asynchronously
     this.publicIpAddress = null;
@@ -98,16 +70,38 @@ class WatchdogClient {
 
   async fetchAdditionalSystemInfo() {
     try {
+      console.log('\n--- COLLECTING SYSTEM INFORMATION ---\n');
+      
+      // Basic info
+      console.log(`Computer Name: ${this.computerName}`);
+      console.log(`Local IP: ${this.ipAddress}`);
+      console.log(`MAC Address: ${this.macAddress}`);
+      console.log(`OS: ${this.osName}`);
+      
       // Get public IP address
       this.publicIpAddress = await this.fetchPublicIp();
+      console.log(`Public IP: ${this.publicIpAddress}`);
+      
+      // Get OS build number
+      this.buildNumber = await this.getOSBuildNumber();
+      console.log(`OS Build Number: ${this.buildNumber}`);
       
       // Get CPU information
       const cpuInfo = await si.cpu();
       this.cpu = `${cpuInfo.manufacturer} ${cpuInfo.brand} @ ${cpuInfo.speed}GHz`;
+      console.log(`CPU: ${this.cpu}`);
+      console.log(`CPU Cores: ${cpuInfo.cores} (Physical: ${cpuInfo.physicalCores})`);
+      
+      // Get CPU usage
+      const cpuUsage = await osUtils.cpu.usage();
+      console.log(`CPU Usage: ${cpuUsage.toFixed(1)}%`);
       
       // Get total memory
       const memInfo = await si.mem();
       this.totalMemory = Math.round(memInfo.total / (1024 * 1024)); // Convert to MB
+      console.log(`Total Memory: ${this.totalMemory} MB`);
+      console.log(`Free Memory: ${Math.round(memInfo.free / (1024 * 1024))} MB`);
+      console.log(`Memory Usage: ${(100 - memInfo.free / memInfo.total * 100).toFixed(1)}%`);
       
       // Get storage information
       const diskInfo = await si.diskLayout();
@@ -119,6 +113,11 @@ class WatchdogClient {
           free: Math.round(mainDisk.available / (1024 * 1024 * 1024)), // Convert to GB
           type: diskInfo.length > 0 ? diskInfo[0].type : 'Unknown'
         };
+        console.log(`Storage:`);
+        console.log(`  - Total: ${this.storage.total} GB`);
+        console.log(`  - Free: ${this.storage.free} GB`);
+        console.log(`  - Type: ${this.storage.type}`);
+        console.log(`  - Usage: ${(100 - mainDisk.available / mainDisk.size * 100).toFixed(1)}%`);
       }
       
       // Get graphics card information
@@ -126,12 +125,32 @@ class WatchdogClient {
       if (graphicsInfo.controllers.length > 0) {
         const mainGPU = graphicsInfo.controllers[0];
         this.graphicsCard = `${mainGPU.vendor} ${mainGPU.model}`;
+        console.log(`Graphics Card: ${this.graphicsCard}`);
+        console.log(`VRAM: ${Math.round(mainGPU.vram)} MB`);
       }
       
-      // Get OS build number
-      this.buildNumber = await this.getOSBuildNumber();
+      console.log(`System Uptime: ${(os.uptime() / 3600).toFixed(2)} hours`);
       
-      console.log('System information collected successfully');
+      console.log('\n--- SYSTEM INFORMATION COLLECTION COMPLETE ---\n');
+      
+      // Log all collected data as a JSON object
+      console.log('COLLECTED DATA AS JSON:');
+      const collectedData = {
+        computerName: this.computerName,
+        ipAddress: this.ipAddress,
+        publicIpAddress: this.publicIpAddress,
+        macAddress: this.macAddress,
+        osName: this.osName,
+        buildNumber: this.buildNumber,
+        cpu: this.cpu,
+        totalMemory: this.totalMemory,
+        storage: this.storage,
+        graphicsCard: this.graphicsCard,
+        version: this.version,
+        uptimeHours: os.uptime() / 3600,
+      };
+      console.log(JSON.stringify(collectedData, null, 2));
+      
     } catch (error) {
       console.error('Error collecting system information:', error);
     }
@@ -182,9 +201,6 @@ class WatchdogClient {
       };
       
       const version = winVersion[release.split('.').slice(0, 2).join('.')] || `Windows (${release})`;
-      
-      // Try to get edition information using exec (in a real implementation)
-      // This is a simplified version
       return version;
     } else if (platform === 'darwin') {
       // macOS platform
@@ -207,101 +223,7 @@ class WatchdogClient {
     }
   }
 
-  async connect() {
-    try {
-      // Include the computer name in the WebSocket URL as a query parameter
-      const wsUrl = `${SERVER_URL}?computerName=${encodeURIComponent(this.computerName)}`;
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.on('open', () => {
-        console.log('Connected to server');
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-        this.sendClientInfo();
-        this.startHeartbeat();
-      });
-
-      this.ws.on('message', async (data) => {
-        const message = JSON.parse(data);
-        await this.handleCommand(message);
-      });
-
-      this.ws.on('close', () => {
-        console.log('Disconnected from server');
-        this.isConnected = false;
-        this.reconnect();
-      });
-
-      this.ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        this.reconnect();
-      });
-    } catch (error) {
-      console.error('Connection error:', error);
-      this.reconnect();
-    }
-  }
-
-  reconnect() {
-    if (this.reconnectAttempts < 5) {
-      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-      this.reconnectAttempts++;
-      setTimeout(() => this.connect(), delay);
-    }
-  }
-
-  async sendClientInfo() {
-    // Refresh system information before sending
-    await this.fetchAdditionalSystemInfo();
-    
-    const info = {
-      type: 'client_info',
-      data: {
-        computerName: this.computerName,
-        ipAddress: this.ipAddress,
-        publicIpAddress: this.publicIpAddress,
-        macAddress: this.macAddress,
-        osName: this.osName,
-        buildNumber: this.buildNumber,
-        cpu: this.cpu,
-        totalMemory: this.totalMemory,
-        storage: this.storage,
-        graphicsCard: this.graphicsCard,
-        version: this.version,
-        uptimeHours: os.uptime() / 3600,
-        cpuUsage: await osUtils.cpu.usage(),
-        memoryUsage: await osUtils.mem.info(),
-      }
-    };
-    this.send(info);
-  }
-
-  startHeartbeat() {
-    this.heartbeatInterval = setInterval(() => {
-      if (this.isConnected) {
-        this.send({ type: 'heartbeat' });
-      }
-    }, HEARTBEAT_INTERVAL);
-  }
-
-  async handleCommand(message) {
-    switch (message.type) {
-      case 'reboot':
-        await this.rebootSystem();
-        break;
-      case 'shutdown':
-        await this.shutdownSystem();
-        break;
-      case 'refresh_info':
-        await this.sendClientInfo();
-        break;
-      default:
-        console.log('Unknown command:', message.type);
-    }
-  }
-
-  async rebootSystem() {
-    this.send({ type: 'reboot_initiated' });
+  testRebootCommand() {
     const platform = os.platform();
     let command = '';
     
@@ -313,16 +235,10 @@ class WatchdogClient {
       command = 'sudo shutdown -r +1';
     }
     
-    exec(command, (error) => {
-      if (error) {
-        console.error('Reboot error:', error);
-        this.send({ type: 'reboot_failed', error: error.message });
-      }
-    });
+    console.log(`[TEST] Reboot command for this platform would be: ${command}`);
   }
 
-  async shutdownSystem() {
-    this.send({ type: 'shutdown_initiated' });
+  testShutdownCommand() {
     const platform = os.platform();
     let command = '';
     
@@ -334,20 +250,16 @@ class WatchdogClient {
       command = 'sudo shutdown -h +1';
     }
     
-    exec(command, (error) => {
-      if (error) {
-        console.error('Shutdown error:', error);
-        this.send({ type: 'shutdown_failed', error: error.message });
-      }
-    });
-  }
-
-  send(data) {
-    if (this.isConnected) {
-      this.ws.send(JSON.stringify(data));
-    }
+    console.log(`[TEST] Shutdown command for this platform would be: ${command}`);
   }
 }
 
-const client = new WatchdogClient();
-client.connect();
+// Create and run the test client
+const client = new WatchdogClientTest();
+
+// Test reboot and shutdown commands (without executing them)
+setTimeout(() => {
+  client.testRebootCommand();
+  client.testShutdownCommand();
+  console.log('\nTest complete. You can copy this data for verification.');
+}, 5000); 
