@@ -205,11 +205,16 @@ function startClientService() {
       return;
     }
     
+    // Determine the NODE_ENV based on command line arguments
+    const isDev = process.argv.includes('--dev');
+    const nodeEnv = isDev ? 'development' : 'production';
+    
     // Set environment variables for the client process
     const env = {
       ...process.env,
-      NODE_ENV: process.argv.includes('--dev') ? 'development' : 'production',
-      SERVER_URL: 'ws://localhost:8080', // Force the server URL for testing
+      NODE_ENV: nodeEnv,
+      // Always use the Heroku server URL regardless of environment
+      SERVER_URL: 'wss://signcast-watchdog-91d66c3ccf16.herokuapp.com',
       HEARTBEAT_INTERVAL: '30000',
     };
     
