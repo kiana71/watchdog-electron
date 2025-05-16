@@ -12,9 +12,10 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "electron-updater": "^6.1.7",
+    "@electron/remote": "^2.1.2",
     "electron-log": "^5.1.1",
-    "electron-store": "^8.1.0"
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.7"
   },
   "devDependencies": {
     "electron": "^30.0.0",
@@ -39,10 +40,15 @@
     ],
     "mac": {
       "category": "public.app-category.utilities",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -54,4 +60,4 @@
   "author": "Your Company",
   "license": "UNLICENSED",
   "private": true
-} 
+}

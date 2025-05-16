@@ -4,7 +4,11 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const log = require('electron-log');
 const Store = require('electron-store');
-
+// Add remote module
+const remote = require('@electron/remote/main');
+const appInfo = {
+  version: require('./package.json').version
+};
 
 // Configure logging
 log.transports.file.level = 'info';
@@ -16,6 +20,9 @@ let mainWindow;
 let tray;
 let clientProcess;
 let isQuitting = false;
+
+// Initialize remote module
+remote.initialize();
 
 // Path to the watchdog client executable
 // const clientPath = path.join(path.dirname(app.getAppPath()), 'watchdog-client', 'index.js');
@@ -40,23 +47,32 @@ function createWindow() {
 
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 800, // Wider to fit DevTools
-    height: 600, // Taller to fit more content
+    width: 800, 
+    height: 600, 
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
       nodeIntegration: false,
-      devTools: true // Explicitly enable DevTools
+      contextIsolation: true,
+      worldSafeExecuteJavaScript: true,
+      sandbox: false,
+      devTools: true
     },
     icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
-    frame: true, // Enable frame for easier development
+    frame: true,
     transparent: false,
-    resizable: true, // Allow resizing for development
+    resizable: true,
     show: false
   });
 
+  // Enable remote module for this window
+  remote.enable(mainWindow.webContents);
+
   // Load the index.html file
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  
+  // Set the app version in a global variable accessible to preload script
+  global.appVersion = appInfo.version;
+  console.log(`Main process app version: ${appInfo.version}`);
 
   // Open DevTools in development mode
   if (process.argv.includes('--dev')) {
@@ -303,3 +319,6 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 }); 
+
+
+
