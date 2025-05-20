@@ -41,4 +41,10 @@ logs/
 # Custom
 assets/icons/icon.png
 assets/icons/tray-icon.png
-assets/icons/logo.png 
+assets/icons/logo.png
+
+# Mac-specific files
+._*
+.DS_Store
+.AppleDouble
+.LSOverride 

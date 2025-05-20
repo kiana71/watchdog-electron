@@ -109,16 +109,32 @@ class WatchdogClient {
       const memInfo = await si.mem();
       this.totalMemory = Math.round(memInfo.total / (1024 * 1024)); // Convert to MB
       
-      // Get storage information
+      // Get storage information for all drives
       const diskInfo = await si.diskLayout();
       const fsInfo = await si.fsSize();
-      if (fsInfo.length > 0) {
-        const mainDisk = fsInfo[0];
-        this.storage = {
-          total: Math.round(mainDisk.size / (1024 * 1024 * 1024)), // Convert to GB
-          free: Math.round(mainDisk.available / (1024 * 1024 * 1024)), // Convert to GB
-          type: diskInfo.length > 0 ? diskInfo[0].type : 'Unknown'
+      
+      // Create an array to store information for all drives
+      this.storage = [];
+      
+      // Process each drive
+      for (const drive of fsInfo) {
+        const driveInfo = {
+          mount: drive.fs, // Drive letter (e.g., C:, D:)
+          total: Math.round(drive.size / (1024 * 1024 * 1024)), // Convert to GB
+          free: Math.round(drive.available / (1024 * 1024 * 1024)), // Convert to GB
+          type: 'Unknown',
+          usage: Math.round((1 - drive.available / drive.size) * 100) // Calculate usage percentage
         };
+        
+        // Try to find matching disk type
+        const matchingDisk = diskInfo.find(disk => 
+          disk.device.toLowerCase().includes(drive.fs.toLowerCase().replace(':', ''))
+        );
+        if (matchingDisk) {
+          driveInfo.type = matchingDisk.type;
+        }
+        
+        this.storage.push(driveInfo);
       }
       
       // Get graphics card information
