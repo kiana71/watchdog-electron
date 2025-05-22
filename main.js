@@ -11,7 +11,7 @@ const appInfo = {
 };
 
 // Configure logging
-log.transports.file.level = 'info';
+log.transports.file.level = 'debug'; // Set to debug to capture all WebSocket logs
 log.info('Application starting...');
 // Initialize settings store
 const store = new Store();
@@ -32,6 +32,14 @@ log.info(`Client path: ${clientPath}`);
 // Check if the client path exists
 if (!fs.existsSync(clientPath)) {
   log.error(`Client not found at: ${clientPath}`);
+}
+
+// Function to forward logs to renderer
+function forwardLog(type, message) {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('websocket-log', { type, message });
+    log[type.toLowerCase()](message);
+  }
 }
 
 function createWindow() {

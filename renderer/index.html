@@ -11,7 +11,6 @@
   <div class="app-container">
     <div class="title-bar">
       <div class="logo">
-        
         <span>Digital Signage Watchdog</span>
       </div>
       <div class="window-controls">
@@ -21,12 +20,35 @@
     </div>
     
     <div class="content">
-      <div class="version-container">
-        <img src="../img/Logo_signcast_big-1080x322.png" alt="Logo" id="app-logo" class="logo">
-        
-        <div class="version-info">
-          <span id="version-text">Version: 1.0.0</span>
+      <img src="../img/Logo_signcast_big-1080x322.png" alt="Logo" id="app-logo">
+      
+      <div class="input-container">
+        <div class="input-group">
+          <div class="input-title">Client Name</div>
+          <input type="text" id="config-input" class="custom-input" placeholder="Name">
+          <button id="save-btn" class="save-btn">Save Changes</button>
         </div>
+      </div>
+    </div>
+
+    <div class="version-info">
+      <span id="version-text">Version: 1.0.0</span>
+    </div>
+
+    <div class="action-icons">
+      <div class="action-icon" id="power-btn" title="Turn Off">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+          <line x1="12" y1="2" x2="12" y2="12"></line>
+        </svg>
+      </div>
+      <div class="action-icon" id="restart-btn" title="Restart Service">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 2v6h-6"></path>
+          <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+          <path d="M3 22v-6h6"></path>
+          <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+        </svg>
       </div>
     </div>
   </div>

@@ -364,16 +364,21 @@ class WatchdogClient {
 
   async captureAndSendScreenshot() {
     try {
+      console.log('Starting screenshot capture...');
       // First, send a message that we're starting the screenshot
       this.send({ type: 'screenshot_started' });
       
+      console.log('Capturing screenshot...');
       // Capture the screenshot
       const imageBuffer = await screenshot();
+      console.log('Screenshot captured, size:', imageBuffer.length, 'bytes');
       
       // Convert the buffer to base64
       const base64Image = imageBuffer.toString('base64');
+      console.log('Screenshot converted to base64, length:', base64Image.length);
       
       // Send the screenshot data
+      console.log('Sending screenshot data to server...');
       this.send({ 
         type: 'screenshot_data',
         data: {
@@ -382,6 +387,7 @@ class WatchdogClient {
           format: 'png'
         }
       });
+      console.log('Screenshot data sent successfully');
     } catch (error) {
       console.error('Screenshot error:', error);
       this.send({ 
