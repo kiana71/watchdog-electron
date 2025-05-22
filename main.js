@@ -215,7 +215,7 @@ function startClientService() {
       NODE_ENV: nodeEnv,
       // Always use the Heroku server URL regardless of environment
       SERVER_URL: 'wss://signcast-watchdog-91d66c3ccf16.herokuapp.com',
-      HEARTBEAT_INTERVAL: '30000',
+      HEARTBEAT_INTERVAL: '10000',  // 10 seconds
     };
     
     console.log('Client environment:', {

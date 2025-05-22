@@ -28,7 +28,7 @@ if (result.error) {
 // Export configuration values
 export const config = {
   serverUrl: process.env.SERVER_URL || 'ws://localhost:8080',
-  heartbeatInterval: parseInt(process.env.HEARTBEAT_INTERVAL || '30000', 10),
+  heartbeatInterval: parseInt(process.env.HEARTBEAT_INTERVAL || '10000', 10),
   environment: NODE_ENV
 };
 
