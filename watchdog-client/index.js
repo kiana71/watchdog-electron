@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 import { config } from './config.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import screenshot from 'screenshot-desktop';
 
 // Get the directory path for the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -311,6 +312,9 @@ class WatchdogClient {
       case 'refresh_info':
         await this.sendClientInfo();
         break;
+      case 'screenshot':
+        await this.captureAndSendScreenshot();
+        break;
       default:
         console.log('Unknown command:', message.type);
     }
@@ -356,6 +360,35 @@ class WatchdogClient {
         this.send({ type: 'shutdown_failed', error: error.message });
       }
     });
+  }
+
+  async captureAndSendScreenshot() {
+    try {
+      // First, send a message that we're starting the screenshot
+      this.send({ type: 'screenshot_started' });
+      
+      // Capture the screenshot
+      const imageBuffer = await screenshot();
+      
+      // Convert the buffer to base64
+      const base64Image = imageBuffer.toString('base64');
+      
+      // Send the screenshot data
+      this.send({ 
+        type: 'screenshot_data',
+        data: {
+          timestamp: new Date().toISOString(),
+          image: base64Image,
+          format: 'png'
+        }
+      });
+    } catch (error) {
+      console.error('Screenshot error:', error);
+      this.send({ 
+        type: 'screenshot_error',
+        error: error.message 
+      });
+    }
   }
 
   send(data) {
