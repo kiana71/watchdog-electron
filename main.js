@@ -10,7 +10,7 @@ const appInfo = {
   version: require('./package.json').version
 };
 
-// Configure logging
+//Configure logging
 log.transports.file.level = 'debug'; // Set to debug to capture all WebSocket logs
 log.info('Application starting...');
 // Initialize settings store
@@ -171,7 +171,7 @@ function createTray() {
           stopClientService();
           startClientService();
         }
-      } 
+      }
     },
     { type: 'separator' },
     { 
@@ -266,7 +266,7 @@ function startClientService() {
     });
     
     if (mainWindow) {
-      mainWindow.webContents.send('client-status', { running: true });
+      mainWindow.webContents.send('client-status',{ running: true });
     }
     
   } catch (error) {
