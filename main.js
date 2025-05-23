@@ -63,11 +63,11 @@ function createWindow() {
       contextIsolation: true,
       worldSafeExecuteJavaScript: true,
       sandbox: false,
-      devTools: true
+      devTools: false
     },
     icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
-    frame: true,
-    transparent: false,
+    frame: false,
+    transparent: true,
     resizable: true,
     show: false
   });
