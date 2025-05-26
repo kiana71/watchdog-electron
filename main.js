@@ -74,7 +74,7 @@ function createWindow() {
       contextIsolation: true,
       worldSafeExecuteJavaScript: true,
       sandbox: false,
-      devTools: false
+      devTools: true
     },
     icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
     frame: false,
@@ -224,6 +224,8 @@ function startClientService() {
       return;
     }
     
+    console.log('Client file exists, proceeding with spawn...');
+    
     // Determine the NODE_ENV based on command line arguments
     const isDev = process.argv.includes('--dev');
     const nodeEnv = isDev ? 'development' : 'production';
@@ -243,12 +245,19 @@ function startClientService() {
       HEARTBEAT_INTERVAL: env.HEARTBEAT_INTERVAL
     });
     
+    console.log('Spawning process with command: node', [clientPath]);
+    console.log('Working directory:', path.dirname(clientPath));
+    
     // Spawn the Node.js process for the watchdog client
     clientProcess = spawn('node', [clientPath], {
       stdio: 'pipe',
       detached: false,
-      env: env
+      env: env,
+      cwd: path.dirname(clientPath) // Set working directory to the client directory
     });
+    
+    console.log('Process spawned, PID:', clientProcess.pid);
+    console.log('Setting up stdout/stderr handlers...');
     
     clientProcess.stdout.on('data', (data) => {
       const message = data.toString().trim();
@@ -275,6 +284,16 @@ function startClientService() {
         mainWindow.webContents.send('client-status', { running: false, exitCode: code });
       }
     });
+    
+    clientProcess.on('error', (error) => {
+      log.error('Client process error:', error);
+      console.error('Client process error:', error);
+      if (mainWindow) {
+        mainWindow.webContents.send('client-error', error.message);
+      }
+    });
+    
+    console.log('Event handlers set up successfully');
     
     if (mainWindow) {
       mainWindow.webContents.send('client-status',{ running: true });
@@ -335,6 +354,59 @@ ipcMain.on('app-minimize', () => {
 ipcMain.on('restart-service', () => {
   stopClientService();
   startClientService();
+});
+
+// Handle save client name
+ipcMain.on('save-client-name', (event, clientName) => {
+  console.log('=== IPC HANDLER CALLED ===');
+  log.info(`Received client name: ${clientName}`);
+  console.log(`Received client name: ${clientName}`);
+  
+  console.log('Client process exists:', !!clientProcess);
+  console.log('Client process stdin exists:', !!(clientProcess && clientProcess.stdin));
+  
+  // Forward the client name to the watchdog client process
+  if (clientProcess && clientProcess.stdin) {
+    const message = JSON.stringify({
+      type: 'set_client_name',
+      data: { clientName: clientName }
+    });
+    
+    console.log('Sending message to client process:', message);
+    
+    try {
+      clientProcess.stdin.write(message + '\n');
+      log.info(`Sent client name to watchdog client: ${clientName}`);
+      console.log(`Sent client name to watchdog client: ${clientName}`);
+    } catch (error) {
+      log.error('Failed to send client name to watchdog client:', error);
+      console.error('Failed to send client name to watchdog client:', error);
+    }
+  } else {
+    log.warn('Client process not available to send client name');
+    console.warn('Client process not available to send client name');
+    console.log('Debug - clientProcess:', !!clientProcess);
+    console.log('Debug - clientProcess.stdin:', !!(clientProcess && clientProcess.stdin));
+  }
+});
+
+// Handle get client name request
+ipcMain.on('get-client-name', (event) => {
+  try {
+    const configPath = path.join(__dirname, 'watchdog-client', 'client-config.json');
+    if (fs.existsSync(configPath)) {
+      const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const clientName = configData.clientName;
+      if (clientName) {
+        log.info(`Loaded saved client name: ${clientName}`);
+        console.log(`Loaded saved client name: ${clientName}`);
+        event.sender.send('client-name-loaded', clientName);
+      }
+    }
+  } catch (error) {
+    log.error('Error loading saved client name:', error);
+    console.error('Error loading saved client name:', error);
+  }
 });
 
 // Quit when all windows are closed except on macOS

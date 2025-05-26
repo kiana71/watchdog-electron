@@ -44,6 +44,7 @@ if (SIMULATE_WINDOWS) {
 class WatchdogClient {
   constructor() {
     this.computerName = os.hostname();
+    this.clientName = this.loadClientName(); // Load persisted client name
     this.ipAddress = this.getIPAddress();
     this.macAddress = this.getMacAddress();
     this.osName = this.getOsInfo();
@@ -61,6 +62,9 @@ class WatchdogClient {
     
     // Fetch initial system information
     this.fetchAdditionalSystemInfo();
+    
+    // Set up stdin handling for receiving messages from main process
+    this.setupStdinHandling();
   }
 
   getIPAddress() {
@@ -275,6 +279,7 @@ class WatchdogClient {
       type: 'client_info',
       data: {
         computerName: this.computerName,
+        clientName: this.clientName,
         ipAddress: this.ipAddress,
         publicIpAddress: this.publicIpAddress,
         macAddress: this.macAddress,
@@ -400,6 +405,133 @@ class WatchdogClient {
   send(data) {
     if (this.isConnected) {
       this.ws.send(JSON.stringify(data));
+    }
+  }
+
+  // Set up stdin handling for receiving messages from main process
+  setupStdinHandling() {
+    console.log('=== SETTING UP STDIN HANDLING ===');
+    console.log('process.stdin.isTTY:', process.stdin.isTTY);
+    console.log('process.stdin readable:', process.stdin.readable);
+    
+    // Check if we're running as a child process (isTTY is false or undefined)
+    if (process.stdin.isTTY !== true) {
+      // We're running as a child process, set up stdin handling
+      console.log('Setting up stdin handling for child process...');
+      process.stdin.setEncoding('utf8');
+      
+      let buffer = '';
+      process.stdin.on('data', (chunk) => {
+        console.log('=== RECEIVED STDIN DATA ===');
+        console.log('Raw chunk:', JSON.stringify(chunk));
+        buffer += chunk;
+        
+        // Process complete lines
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep incomplete line in buffer
+        
+        console.log('Processing lines:', lines.length);
+        lines.forEach(line => {
+          if (line.trim()) {
+            console.log('Processing line:', JSON.stringify(line.trim()));
+            try {
+              const message = JSON.parse(line.trim());
+              console.log('Parsed message:', message);
+              this.handleMainProcessMessage(message);
+            } catch (error) {
+              console.error('Error parsing message from main process:', error);
+              console.error('Raw line was:', JSON.stringify(line.trim()));
+            }
+          }
+        });
+      });
+      
+      process.stdin.on('end', () => {
+        console.log('Main process stdin ended');
+      });
+      
+      process.stdin.on('error', (error) => {
+        console.error('Stdin error:', error);
+      });
+      
+      console.log('Stdin event listeners set up successfully');
+    } else {
+      console.log('Running in TTY mode, stdin handling not needed');
+    }
+  }
+  
+  // Handle messages from the main process
+  handleMainProcessMessage(message) {
+    console.log('=== HANDLING MAIN PROCESS MESSAGE ===');
+    console.log('Received message from main process:', message);
+    
+    switch (message.type) {
+      case 'set_client_name':
+        console.log('Processing set_client_name message...');
+        console.log('Current clientName:', this.clientName);
+        console.log('New clientName:', message.data.clientName);
+        
+        this.clientName = message.data.clientName;
+        console.log(`Client name updated to: ${this.clientName}`);
+        
+        // Save the client name to file for persistence
+        console.log('Attempting to save client name...');
+        this.saveClientName(this.clientName);
+        console.log('Save client name completed');
+        
+        // Send updated client info to server immediately
+        if (this.isConnected) {
+          console.log('Sending updated client info to server...');
+          this.sendClientInfo();
+        } else {
+          console.log('Not connected to server, will send info when connected');
+        }
+        break;
+      default:
+        console.log('Unknown message type from main process:', message.type);
+    }
+  }
+
+  loadClientName() {
+    try {
+      const configPath = join(__dirname, 'client-config.json');
+      if (fs.existsSync(configPath)) {
+        const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        console.log(`Loaded client name from config: ${configData.clientName}`);
+        return configData.clientName || null;
+      }
+    } catch (error) {
+      console.error('Error loading client name:', error);
+    }
+    return null; // No saved client name
+  }
+  
+  saveClientName(clientName) {
+    try {
+      console.log('=== SAVING CLIENT NAME ===');
+      console.log('Client name to save:', clientName);
+      console.log('Current directory (__dirname):', __dirname);
+      
+      const configPath = join(__dirname, 'client-config.json');
+      console.log('Config file path:', configPath);
+      
+      const configData = { clientName: clientName };
+      console.log('Config data to write:', configData);
+      
+      fs.writeFileSync(configPath, JSON.stringify(configData, null, 2));
+      console.log(`Successfully saved client name to config: ${clientName}`);
+      
+      // Verify the file was written
+      if (fs.existsSync(configPath)) {
+        const savedData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        console.log('Verification - file exists and contains:', savedData);
+      } else {
+        console.error('ERROR: Config file was not created!');
+      }
+    } catch (error) {
+      console.error('=== ERROR SAVING CLIENT NAME ===');
+      console.error('Error saving client name:', error);
+      console.error('Error stack:', error.stack);
     }
   }
 }
