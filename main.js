@@ -26,7 +26,18 @@ remote.initialize();
 
 // Path to the watchdog client executable
 // const clientPath = path.join(path.dirname(app.getAppPath()), 'watchdog-client', 'index.js');
-const clientPath = path.join(app.getAppPath(), 'watchdog-client', 'index.js');
+// In development, use the local path. In production, use extraResources
+const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
+let clientPath;
+
+if (isDev) {
+  // Development: use local path
+  clientPath = path.join(app.getAppPath(), 'watchdog-client', 'index.js');
+} else {
+  // Production: use extraResources (outside ASAR)
+  clientPath = path.join(process.resourcesPath, 'watchdog-client', 'index.js');
+}
+
 log.info(`Client path: ${clientPath}`);
 
 // Check if the client path exists

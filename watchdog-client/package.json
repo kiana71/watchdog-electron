@@ -8,7 +8,8 @@
     "start": "node index.js",
     "install-service": "node install-service.js",
     "install-service-mac": "node install-service-mac.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "rebuild": "npm rebuild screenshot-desktop"
   },
   "dependencies": {
     "ws": "^8.16.0",
