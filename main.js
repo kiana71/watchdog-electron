@@ -119,10 +119,18 @@ function createWindow() {
 
   // Handle window close event
   mainWindow.on('close', (event) => {
+    console.log('=== WINDOW CLOSE EVENT ===');
+    console.log('isQuitting:', isQuitting);
+    console.log('Tray exists:', !!tray);
+    
     if (!isQuitting) {
+      console.log('Preventing close, hiding window instead');
       event.preventDefault();
       mainWindow.hide();
+      console.log('Window hidden successfully');
       return false;
+    } else {
+      console.log('Allowing window to close (app is quitting)');
     }
   });
   
@@ -135,7 +143,9 @@ function createTray() {
   
   console.log('Creating tray with icon path:', trayIconPath);
   
-  // Check if tray icon exists and has content
+  let trayImage;
+  
+  // Try to load the custom icon, fall back to a simple one if it fails
   try {
     const stats = fs.statSync(trayIconPath);
     console.log('Tray icon file size:', stats.size, 'bytes');
@@ -146,38 +156,46 @@ function createTray() {
       
       if (process.platform === 'win32') {
         // On Windows, ensure the icon is the right size
-        const resizedImage = image.resize({ width: 16, height: 16 });
-        tray = new Tray(resizedImage);
+        trayImage = image.resize({ width: 16, height: 16 });
         console.log('Created Windows tray with resized icon');
       } else if (process.platform === 'darwin') {
         // On macOS, create a template image - this will adapt to light/dark mode
-        const resizedImage = image.resize({ width: 22, height: 22 });
-        tray = new Tray(resizedImage);
-        // On macOS, setting a title can make it more visible
-        tray.setTitle('WD');
+        trayImage = image.resize({ width: 22, height: 22 });
         console.log('Created macOS tray with template icon');
       } else {
         // Linux and other platforms
-        tray = new Tray(image);
+        trayImage = image;
         console.log('Created tray with default icon');
       }
     } else {
-      console.warn('Tray icon file exists but is empty (0 bytes). Using fallback.');
-      // Create a simple colored square as fallback
-      const fallbackImage = nativeImage.createFromBuffer(Buffer.from([
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-        0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, // 16x16
-        0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x91, 0x68, 0x36
-      ]));
-      tray = new Tray(fallbackImage);
+      throw new Error('Icon file is empty');
     }
   } catch (error) {
-    console.warn('Failed to load tray icon:', error.message);
-    console.log('Creating tray with empty image');
-    tray = new Tray(nativeImage.createEmpty());
+    console.warn('Failed to load custom tray icon:', error.message);
+    console.log('Creating fallback tray icon');
+    
+    // Create a simple fallback icon (16x16 blue square)
+    const canvas = require('electron').nativeImage.createEmpty();
+    trayImage = nativeImage.createFromBuffer(Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+      0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+      0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, // 16x16
+      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x91, 0x68, 0x36
+    ]));
   }
   
+  // Always create the tray, even if icon loading failed
+  try {
+    tray = new Tray(trayImage);
+    console.log('Tray created successfully');
+  } catch (error) {
+    console.error('Failed to create tray:', error);
+    // Create with empty image as last resort
+    tray = new Tray(nativeImage.createEmpty());
+    console.log('Created tray with empty image as fallback');
+  }
+  
+  // Set up tray context menu and events
   const contextMenu = Menu.buildFromTemplate([
     { 
       label: 'Show App', 
@@ -209,6 +227,11 @@ function createTray() {
   tray.setToolTip('Digital Signage Watchdog');
   tray.setContextMenu(contextMenu);
   
+  // Set title for macOS
+  if (process.platform === 'darwin') {
+    tray.setTitle('WD');
+  }
+  
   tray.on('double-click', () => {
     console.log('Tray double-clicked');
     if (mainWindow) {
@@ -235,7 +258,7 @@ function createTray() {
     }
   });
   
-  console.log('Tray created successfully');
+  console.log('Tray setup completed successfully');
 }
 
 function startClientService() {
@@ -447,13 +470,18 @@ ipcMain.on('get-client-name', (event) => {
 // But don't quit if we have a tray icon (for Windows)
 app.on('window-all-closed', () => {
   console.log('All windows closed');
-  if (process.platform !== 'darwin' && !tray) {
-    console.log('No tray icon, quitting app');
+  console.log('isQuitting:', isQuitting);
+  console.log('Tray exists:', !!tray);
+  console.log('Platform:', process.platform);
+  
+  // Only quit if explicitly requested (isQuitting = true)
+  // Never quit just because windows are closed - this is a background service
+  if (isQuitting) {
+    console.log('Explicitly quitting app');
     app.quit();
   } else {
-    console.log('Tray icon exists or macOS, keeping app running');
+    console.log('Keeping app running in background (tray or service mode)');
+    // Don't quit - keep running in background
   }
 }); 
-
-
 

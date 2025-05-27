@@ -5,6 +5,7 @@ const versionText = document.getElementById('version-text');
 const configInput = document.getElementById('config-input');
 const saveBtn = document.getElementById('save-btn');
 
+
 // Set version - with fallback if API isn't available
 try {
   if (window.api && typeof window.api.getVersion === 'function') {
@@ -47,9 +48,10 @@ minimizeBtn.addEventListener('click', () => {
 
 closeBtn.addEventListener('click', () => {
   if (window.api && typeof window.api.send === 'function') {
-    window.api.send('app-quit');
+    // Hide to tray instead of quitting
+    window.api.send('app-minimize');
   } else {
-    console.warn('API not available for quit');
+    console.warn('API not available for minimize');
   }
 });
 
