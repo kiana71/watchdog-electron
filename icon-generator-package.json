@@ -1,9 +1,0 @@
-{
-  "name": "watchdog-icon-generator",
-  "version": "1.0.0",
-  "description": "Icon generator for WatchDog application",
-  "private": true,
-  "dependencies": {
-    "canvas": "^2.11.2"
-  }
-} 
