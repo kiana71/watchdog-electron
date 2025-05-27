@@ -182,7 +182,7 @@ function createTray() {
           stopClientService();
           startClientService();
         }
-      }
+      } 
     },
     { type: 'separator' },
     { 

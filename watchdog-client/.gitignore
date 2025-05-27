@@ -31,4 +31,7 @@ logs/
 *.ntvs*
 *.njsproj
 *.sln
-*.sw? 
+*.sw?
+
+# Client configuration (user-specific)
+client-config.json
