@@ -419,7 +419,7 @@ class WatchdogClient {
       // We're running as a child process, set up stdin handling
       console.log('Setting up stdin handling for child process...');
       process.stdin.setEncoding('utf8');
-      
+     
       let buffer = '';
       process.stdin.on('data', (chunk) => {
         console.log('=== RECEIVED STDIN DATA ===');
