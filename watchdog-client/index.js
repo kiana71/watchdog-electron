@@ -494,11 +494,19 @@ class WatchdogClient {
 
   loadClientName() {
     try {
-      const configPath = join(__dirname, 'client-config.json');
+      // Use user-specific directory instead of shared app directory
+      const userHomeDir = os.homedir();
+      const configDir = path.join(userHomeDir, '.watchdog-client');
+      const configPath = path.join(configDir, 'client-config.json');
+      
+      console.log(`Loading client name from user-specific path: ${configPath}`);
+      
       if (fs.existsSync(configPath)) {
         const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         console.log(`Loaded client name from config: ${configData.clientName}`);
         return configData.clientName || null;
+      } else {
+        console.log('No user-specific client config found, starting with empty name');
       }
     } catch (error) {
       console.error('Error loading client name:', error);
@@ -510,16 +518,27 @@ class WatchdogClient {
     try {
       console.log('=== SAVING CLIENT NAME ===');
       console.log('Client name to save:', clientName);
-      console.log('Current directory (__dirname):', __dirname);
       
-      const configPath = join(__dirname, 'client-config.json');
+      // Use user-specific directory instead of shared app directory
+      const userHomeDir = os.homedir();
+      const configDir = path.join(userHomeDir, '.watchdog-client');
+      const configPath = path.join(configDir, 'client-config.json');
+      
+      console.log('User home directory:', userHomeDir);
+      console.log('Config directory:', configDir);
       console.log('Config file path:', configPath);
+      
+      // Create the config directory if it doesn't exist
+      if (!fs.existsSync(configDir)) {
+        console.log('Creating config directory...');
+        fs.mkdirSync(configDir, { recursive: true });
+      }
       
       const configData = { clientName: clientName };
       console.log('Config data to write:', configData);
       
       fs.writeFileSync(configPath, JSON.stringify(configData, null, 2));
-      console.log(`Successfully saved client name to config: ${clientName}`);
+      console.log(`Successfully saved client name to user-specific config: ${clientName}`);
       
       // Verify the file was written
       if (fs.existsSync(configPath)) {

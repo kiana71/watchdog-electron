@@ -5,7 +5,6 @@ const versionText = document.getElementById('version-text');
 const configInput = document.getElementById('config-input');
 const saveBtn = document.getElementById('save-btn');
 
-
 // Set version - with fallback if API isn't available
 try {
   if (window.api && typeof window.api.getVersion === 'function') {
@@ -24,6 +23,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.api && typeof window.api.send === 'function') {
     // Request the saved client name from main process
     window.api.send('get-client-name');
+  }
+  
+  // Set computer name directly
+  if (window.api && typeof window.api.getComputerName === 'function') {
+    const computerNameElement = document.querySelector('.computer-Name');
+    if (computerNameElement) {
+      const computerName = window.api.getComputerName();
+      computerNameElement.textContent = `Host Name: ${computerName}`;
+      console.log(`Loaded computer name: ${computerName}`);
+    }
   }
 });
 

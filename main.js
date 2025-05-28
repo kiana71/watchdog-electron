@@ -4,17 +4,27 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const log = require('electron-log');
 const Store = require('electron-store');
+const AutoLaunch = require('auto-launch');
 // Add remote module
 const remote = require('@electron/remote/main');
 const appInfo = {
   version: require('./package.json').version
 };
+const os = require('os');
 
 //Configure logging
 log.transports.file.level = 'debug'; // Set to debug to capture all WebSocket logs
 log.info('Application starting...');
+
 // Initialize settings store
 const store = new Store();
+
+// Configure auto-launch
+const autoLauncher = new AutoLaunch({
+  name: 'Digital Signage Watchdog',
+  path: app.getPath('exe'),
+});
+
 // Keep a global reference of the window and tray objects
 let mainWindow;
 let tray;
@@ -66,8 +76,10 @@ function createWindow() {
 
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 800, 
+    width:800, 
     height: 600, 
+    x: 100,  // Position from left edge of screen
+    y: 100,  // Position from top edge of screen
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -79,7 +91,7 @@ function createWindow() {
     icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
     frame: false,
     transparent: true,
-    resizable: true,
+    resizable: false,  // Lock the window size
     show: false
   });
 
@@ -370,8 +382,28 @@ function stopClientService() {
 }
 
 // Create window when Electron app is ready
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   console.log('App ready, platform:', process.platform);
+  
+  // Always enable auto-launch for watchdog functionality
+  try {
+    const isEnabled = await autoLauncher.isEnabled();
+    console.log('Auto-launch currently enabled:', isEnabled);
+    
+    if (!isEnabled) {
+      // Always enable auto-launch for watchdog functionality
+      await autoLauncher.enable();
+      console.log('Auto-launch enabled successfully (mandatory for watchdog)');
+      log.info('Auto-launch enabled successfully (mandatory for watchdog)');
+    } else {
+      console.log('Auto-launch already enabled');
+      log.info('Auto-launch already enabled');
+    }
+  } catch (error) {
+    console.error('Failed to configure auto-launch:', error);
+    log.error('Failed to configure auto-launch:', error);
+  }
+  
   createWindow();
   
   // On Windows, create the tray icon (it's the primary target platform)
@@ -450,7 +482,13 @@ ipcMain.on('save-client-name', (event, clientName) => {
 // Handle get client name request
 ipcMain.on('get-client-name', (event) => {
   try {
-    const configPath = path.join(__dirname, 'watchdog-client', 'client-config.json');
+    // Use user-specific directory instead of shared app directory
+    const userHomeDir = os.homedir();
+    const configDir = path.join(userHomeDir, '.watchdog-client');
+    const configPath = path.join(configDir, 'client-config.json');
+    
+    console.log(`Loading client name from user-specific path: ${configPath}`);
+    
     if (fs.existsSync(configPath)) {
       const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       const clientName = configData.clientName;
@@ -459,6 +497,8 @@ ipcMain.on('get-client-name', (event) => {
         console.log(`Loaded saved client name: ${clientName}`);
         event.sender.send('client-name-loaded', clientName);
       }
+    } else {
+      console.log('No user-specific client config found, starting with empty name');
     }
   } catch (error) {
     log.error('Error loading saved client name:', error);
@@ -483,5 +523,5 @@ app.on('window-all-closed', () => {
     console.log('Keeping app running in background (tray or service mode)');
     // Don't quit - keep running in background
   }
-}); 
+});
 

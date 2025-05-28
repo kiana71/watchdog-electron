@@ -12,6 +12,10 @@ try {
   console.log('Using default version - could not access remote module');
 }
 
+// Get computer name directly
+const os = require('os');
+const computerName = os.hostname();
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('api', {
@@ -29,5 +33,6 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }
   },
-  getVersion: () => appVersion
+  getVersion: () => appVersion,
+  getComputerName: () => computerName
 }); 
