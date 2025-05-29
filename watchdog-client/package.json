@@ -28,7 +28,7 @@
   "engines": {
     "node": ">=16.0.0"
   },
-  "author": "Your Company",
+  "author": "Signcast",
   "license": "UNLICENSED",
   "private": true,
   "repository": {

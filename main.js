@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, session, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, session, nativeImage, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -23,6 +23,7 @@ const store = new Store();
 const autoLauncher = new AutoLaunch({
   name: 'Digital Signage Watchdog',
   path: app.getPath('exe'),
+  args: ['--hidden', '--startup']  // Add both hidden and startup arguments
 });
 
 // Keep a global reference of the window and tray objects
@@ -92,7 +93,8 @@ function createWindow() {
     frame: false,
     transparent: true,
     resizable: false,  // Lock the window size
-    show: false
+    show: false,  // Always start hidden, decide later whether to show
+    skipTaskbar: true  // Don't show in taskbar initially
   });
 
   // Enable remote module for this window
@@ -119,9 +121,65 @@ function createWindow() {
     log.info('Running in development mode with DevTools enabled');
   }
 
-  // Only show the window when it's ready
+  // Check if app was started automatically (via auto-launch) or manually
+  // More comprehensive detection for auto-start scenarios
+  const isAutoStarted = process.argv.includes('--hidden') || 
+                       process.argv.includes('--startup') ||
+                       process.argv.includes('--start-minimized') ||
+                       app.getLoginItemSettings().wasOpenedAtLogin ||
+                       process.env.STARTUP_MODE === 'auto' ||
+                       // Check if launched from Windows startup folder or registry
+                       (process.platform === 'win32' && process.argv.length === 1);
+
+  console.log('Process arguments:', process.argv);
+  console.log('Login item settings:', app.getLoginItemSettings());
+  console.log('App startup mode - Auto started:', isAutoStarted);
+  log.info(`Process arguments: ${JSON.stringify(process.argv)}`);
+  log.info(`Login item settings: ${JSON.stringify(app.getLoginItemSettings())}`);
+  log.info(`App startup mode - Auto started: ${isAutoStarted}`);
+
+  // Only show the window when it's ready AND if not auto-started
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    // Additional check: if no explicit user interaction detected, assume auto-start
+    const hasUserInteraction = process.argv.includes('--show') || 
+                              process.argv.includes('--open') ||
+                              process.env.USER_LAUNCHED === 'true';
+    
+    // Default to hidden unless explicitly launched by user
+    const shouldShowWindow = !isAutoStarted && (hasUserInteraction || 
+                            // Only show if launched directly (not from startup)
+                            (!app.getLoginItemSettings().wasOpenedAtLogin && 
+                             !process.argv.includes('--startup') && 
+                             !process.argv.includes('--hidden')));
+    
+    if (shouldShowWindow) {
+      console.log('App manually started - showing window');
+      log.info('App manually started - showing window');
+      mainWindow.show();
+      mainWindow.setSkipTaskbar(false);  // Show in taskbar when visible
+    } else {
+      console.log('App auto-started or launched from startup - staying hidden in tray');
+      log.info('App auto-started or launched from startup - staying hidden in tray');
+      
+      // Show notification that app is running in background
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: 'Digital Signage Watchdog',
+          body: 'Watchdog is running in the background. Click the tray icon to open.',
+          icon: path.join(__dirname, 'assets', 'icons', 'icon.png'),
+          silent: true
+        });
+        notification.show();
+        
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => {
+          notification.close();
+        }, 5000);
+      }
+      
+      // Keep window hidden and maintain skipTaskbar
+      mainWindow.setSkipTaskbar(true);
+    }
   });
 
   // Emitted when the window is closed
@@ -214,6 +272,8 @@ function createTray() {
       click: () => {
         if (mainWindow) {
           mainWindow.show();
+          mainWindow.focus();
+          mainWindow.setSkipTaskbar(false);  // Show in taskbar when visible
         }
       } 
     },
@@ -236,7 +296,7 @@ function createTray() {
     }
   ]);
   
-  tray.setToolTip('Digital Signage Watchdog');
+  tray.setToolTip('Digital Signage Watchdog - Click to show/hide window');
   tray.setContextMenu(contextMenu);
   
   // Set title for macOS
@@ -250,10 +310,12 @@ function createTray() {
       if (mainWindow.isVisible()) {
         console.log('Hiding main window');
         mainWindow.hide();
+        mainWindow.setSkipTaskbar(true);  // Hide from taskbar when hidden
       } else {
         console.log('Showing main window');
         mainWindow.show();
         mainWindow.focus();
+        mainWindow.setSkipTaskbar(false);  // Show in taskbar when visible
       }
     }
   });
@@ -263,9 +325,11 @@ function createTray() {
     if (mainWindow) {
       if (mainWindow.isVisible()) {
         mainWindow.hide();
+        mainWindow.setSkipTaskbar(true);  // Hide from taskbar when hidden
       } else {
         mainWindow.show();
         mainWindow.focus();
+        mainWindow.setSkipTaskbar(false);  // Show in taskbar when visible
       }
     }
   });
@@ -383,7 +447,15 @@ function stopClientService() {
 
 // Create window when Electron app is ready
 app.whenReady().then(async () => {
+  console.log('=== APP STARTUP DEBUG INFO ===');
   console.log('App ready, platform:', process.platform);
+  console.log('Process arguments:', process.argv);
+  console.log('Process execPath:', process.execPath);
+  console.log('App path:', app.getAppPath());
+  console.log('App exe path:', app.getPath('exe'));
+  console.log('Working directory:', process.cwd());
+  console.log('Login item settings:', app.getLoginItemSettings());
+  console.log('================================');
   
   // Always enable auto-launch for watchdog functionality
   try {
