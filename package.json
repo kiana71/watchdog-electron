@@ -6,9 +6,10 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
+    "build": "npm run download-node && electron-builder",
+    "build:win": "npm run download-node && electron-builder --win",
+    "build:mac": "npm run download-node && electron-builder --mac",
+    "download-node": "node scripts/download-node.js",
     "postinstall": "electron-builder install-app-deps && npm run rebuild",
     "rebuild": "electron-rebuild"
   },
@@ -28,6 +29,7 @@
     "appId": "com.yourcompany.watchdog",
     "productName": "Digital Signage Watchdog",
     "asar": false,
+    "icon": "appstore.png",
     "files": [
       "**/*",
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
@@ -49,9 +51,17 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "runtime/node-win-x64",
+        "to": "node-runtime",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "mac": {
+      "icon": "appstore.png",
       "category": "public.app-category.utilities",
       "target": [
         "dmg",
@@ -59,6 +69,7 @@
       ]
     },
     "win": {
+      "icon": "appstore.png",
       "target": [
         "nsis"
       ]
@@ -70,7 +81,7 @@
       "runAfterFinish": true
     }
   },
-  "author": "Signcast",
+  "author": "Signcast Media Inc.",
   "license": "UNLICENSED",
   "private": true
 }

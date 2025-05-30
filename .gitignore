@@ -17,9 +17,9 @@ release/
 # Environment variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.development
+.env.test
+.env.production
 
 # OS files
 .DS_Store
@@ -41,10 +41,13 @@ logs/
 # Custom
 assets/icons/icon.png
 assets/icons/tray-icon.png
-assets/icons/logo.png 
+assets/icons/logo.png
 
 # Mac-specific files
 ._*
 .DS_Store
 .AppleDouble
-.LSOverride 
+.LSOverride
+
+# Downloaded Node.js runtime (downloaded during build)
+runtime/ 

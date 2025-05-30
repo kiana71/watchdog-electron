@@ -410,53 +410,75 @@ class WatchdogClient {
 
   // Set up stdin handling for receiving messages from main process
   setupStdinHandling() {
-    console.log('=== SETTING UP STDIN HANDLING ===');
-    console.log('process.stdin.isTTY:', process.stdin.isTTY);
-    console.log('process.stdin readable:', process.stdin.readable);
-    
-    // Check if we're running as a child process (isTTY is false or undefined)
-    if (process.stdin.isTTY !== true) {
-      // We're running as a child process, set up stdin handling
-      console.log('Setting up stdin handling for child process...');
-      process.stdin.setEncoding('utf8');
-     
-      let buffer = '';
-      process.stdin.on('data', (chunk) => {
-        console.log('=== RECEIVED STDIN DATA ===');
-        console.log('Raw chunk:', JSON.stringify(chunk));
-        buffer += chunk;
+    try {
+      console.log('=== SETTING UP STDIN HANDLING ===');
+      console.log('process.stdin.isTTY:', process.stdin.isTTY);
+      console.log('process.stdin readable:', process.stdin.readable);
+      
+      // Check if we're running as a child process (isTTY is false or undefined)
+      if (process.stdin.isTTY !== true) {
+        // We're running as a child process, set up stdin handling
+        console.log('Setting up stdin handling for child process...');
         
-        // Process complete lines
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // Keep incomplete line in buffer
+        // Set encoding with error handling
+        try {
+          process.stdin.setEncoding('utf8');
+        } catch (error) {
+          console.warn('Failed to set stdin encoding:', error);
+          return; // Exit gracefully if stdin setup fails
+        }
+       
+        let buffer = '';
         
-        console.log('Processing lines:', lines.length);
-        lines.forEach(line => {
-          if (line.trim()) {
-            console.log('Processing line:', JSON.stringify(line.trim()));
+        // Wrap event listeners in try-catch to prevent crashes
+        try {
+          process.stdin.on('data', (chunk) => {
             try {
-              const message = JSON.parse(line.trim());
-              console.log('Parsed message:', message);
-              this.handleMainProcessMessage(message);
+              console.log('=== RECEIVED STDIN DATA ===');
+              console.log('Raw chunk:', JSON.stringify(chunk));
+              buffer += chunk;
+              
+              // Process complete lines
+              const lines = buffer.split('\n');
+              buffer = lines.pop(); // Keep incomplete line in buffer
+              
+              console.log('Processing lines:', lines.length);
+              lines.forEach(line => {
+                if (line.trim()) {
+                  console.log('Processing line:', JSON.stringify(line.trim()));
+                  try {
+                    const message = JSON.parse(line.trim());
+                    console.log('Parsed message:', message);
+                    this.handleMainProcessMessage(message);
+                  } catch (error) {
+                    console.error('Error parsing message from main process:', error);
+                    console.error('Raw line was:', JSON.stringify(line.trim()));
+                  }
+                }
+              });
             } catch (error) {
-              console.error('Error parsing message from main process:', error);
-              console.error('Raw line was:', JSON.stringify(line.trim()));
+              console.error('Error processing stdin data:', error);
             }
-          }
-        });
-      });
-      
-      process.stdin.on('end', () => {
-        console.log('Main process stdin ended');
-      });
-      
-      process.stdin.on('error', (error) => {
-        console.error('Stdin error:', error);
-      });
-      
-      console.log('Stdin event listeners set up successfully');
-    } else {
-      console.log('Running in TTY mode, stdin handling not needed');
+          });
+          
+          process.stdin.on('end', () => {
+            console.log('Main process stdin ended');
+          });
+          
+          process.stdin.on('error', (error) => {
+            console.warn('Stdin error (non-fatal):', error);
+          });
+          
+          console.log('Stdin event listeners set up successfully');
+        } catch (error) {
+          console.warn('Failed to set up stdin event listeners:', error);
+        }
+      } else {
+        console.log('Running in TTY mode, stdin handling not needed');
+      }
+    } catch (error) {
+      console.error('Error in setupStdinHandling (non-fatal):', error);
+      // Don't throw - allow client to continue connecting even if stdin setup fails
     }
   }
   
@@ -504,14 +526,18 @@ class WatchdogClient {
       if (fs.existsSync(configPath)) {
         const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         console.log(`Loaded client name from config: ${configData.clientName}`);
-        return configData.clientName || null;
+        return configData.clientName || `Client-${this.computerName}`;
       } else {
-        console.log('No user-specific client config found, starting with empty name');
+        console.log('No user-specific client config found, using default client name');
       }
     } catch (error) {
       console.error('Error loading client name:', error);
     }
-    return null; // No saved client name
+    
+    // Return a default client name based on computer name for new installations
+    const defaultName = `Client-${this.computerName}`;
+    console.log(`Using default client name: ${defaultName}`);
+    return defaultName;
   }
   
   saveClientName(clientName) {

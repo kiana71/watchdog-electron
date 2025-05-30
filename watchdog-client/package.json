@@ -28,12 +28,12 @@
   "engines": {
     "node": ">=16.0.0"
   },
-  "author": "Signcast",
+  "author": "Signcast Media Inc.",
   "license": "UNLICENSED",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/watchdog-client.git"
+    "url":"git+https://github.com/yourusername/watchdog-client.git"
   },
   "keywords": [
     "digital-signage",
