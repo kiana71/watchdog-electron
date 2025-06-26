@@ -30,6 +30,12 @@
     "productName": "Digital Signage Watchdog",
     "asar": false,
     "icon": "appstore.png",
+    "publish": {
+      "provider": "github",
+      "owner": "kiana71",
+      "repo": "watchdog-electron",
+      "private": false
+    },
     "files": [
       "**/*",
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",

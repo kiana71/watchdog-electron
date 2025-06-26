@@ -7,14 +7,108 @@ const Store = require('electron-store');
 const AutoLaunch = require('auto-launch');
 // Add remote module
 const remote = require('@electron/remote/main');
+// Add electron-updater for automatic updates
+const { autoUpdater } = require('electron-updater');
 const appInfo = {
   version: require('./package.json').version
 };
 const os = require('os');
 
-//Configure logging
+// Configure logging
 log.transports.file.level = 'debug'; // Set to debug to capture all WebSocket logs
 log.info('Application starting...');
+
+// Configure auto-updater
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+
+// Configure GitHub repository for updates
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'kiana71',
+  repo: 'watchdog-electron',
+  private: false // Set to true if your repo is private
+});
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  log.info('Checking for updates...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'checking' });
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  log.info('Update available:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'available', 
+      version: info.version 
+    });
+  }
+  
+  // Show system notification
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title: 'Digital Signage Watchdog Update',
+      body: `New version ${info.version} is available! Click the update button to install.`,
+      icon: path.join(__dirname, 'appstore.png'),
+      silent: false
+    });
+    notification.show();
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  log.info('Update not available:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'not-available',
+      message: 'You have the latest version'
+    });
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  log.error('Auto-updater error:', err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'error', 
+      error: err.message 
+    });
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  log.info('Download progress:', progressObj);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'downloading', 
+      progress: progressObj.percent 
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  log.info('Update downloaded:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'downloaded', 
+      version: info.version 
+    });
+  }
+  
+  // Show notification that update is ready
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title: 'Digital Signage Watchdog Update',
+      body: 'Update downloaded! The app will restart to install the update.',
+      icon: path.join(__dirname, 'appstore.png'),
+      silent: false
+    });
+    notification.show();
+  }
+});
 
 // Single instance lock - prevent multiple instances of the app
 const gotTheLock = app.requestSingleInstanceLock();
@@ -538,6 +632,12 @@ if (!gotTheLock) {
     
     createWindow();
     
+    // Check for updates automatically on startup (but delay it a bit)
+    setTimeout(() => {
+      log.info('Checking for updates on startup...');
+      autoUpdater.checkForUpdates();
+    }, 10000); // Check after 10 seconds to let app fully load
+    
     // On Windows, create the tray icon (it's the primary target platform)
     // On macOS, only create it for development/testing
     if (process.platform === 'win32' || process.env.NODE_ENV === 'development') {
@@ -575,6 +675,24 @@ if (!gotTheLock) {
   ipcMain.on('restart-service', () => {
     stopClientService();
     startClientService();
+  });
+
+  // Handle manual update check
+  ipcMain.on('check-for-updates', () => {
+    log.info('Manual update check requested');
+    autoUpdater.checkForUpdates();
+  });
+
+  // Handle update download and install
+  ipcMain.on('download-update', () => {
+    log.info('Manual update download requested');
+    autoUpdater.downloadUpdate();
+  });
+
+  // Handle update install
+  ipcMain.on('install-update', () => {
+    log.info('Manual update install requested');
+    autoUpdater.quitAndInstall();
   });
 
   // Handle save client name
