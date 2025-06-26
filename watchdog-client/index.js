@@ -550,7 +550,7 @@ class WatchdogClient {
       // Don't throw - allow client to continue connecting even if stdin setup fails
     }
   }
-  
+
   // Handle messages from the main process
   handleMainProcessMessage(message) {
     console.log('=== HANDLING MAIN PROCESS MESSAGE ===');
