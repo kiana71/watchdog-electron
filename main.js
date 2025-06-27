@@ -273,21 +273,13 @@ if (!gotTheLock) {
     autoUpdater.on('update-available', (info) => {
       log.info('Update available:', info);
       console.log('Update available:', info);
-      if (mainWindow) {
+      if (mainWindow && mainWindow.webContents) {
         mainWindow.webContents.send('update-status', {
           status: 'available',
           version: info.version
         });
       }
-      if (Notification.isSupported()) {
-        const notification = new Notification({
-          title: 'Digital Signage Watchdog Update',
-          body: `New version ${info.version} is available! Click the update button to install.`,
-          icon: path.join(__dirname, 'appstore.png'),
-          silent: false
-        });
-        notification.show();
-      }
+      // Removed notification for digital signage - button color change will indicate update availability
     });
 
     autoUpdater.on('update-not-available', (info) => {
@@ -326,21 +318,13 @@ if (!gotTheLock) {
     autoUpdater.on('update-downloaded', (info) => {
       log.info('Update downloaded:', info);
       console.log('Update downloaded:', info);
-      if (mainWindow) {
+      if (mainWindow && mainWindow.webContents) {
         mainWindow.webContents.send('update-status', {
           status: 'downloaded',
           version: info.version
         });
       }
-      if (Notification.isSupported()) {
-        const notification = new Notification({
-          title: 'Digital Signage Watchdog Update',
-          body: 'Update downloaded! The app will restart to install the update.',
-          icon: path.join(__dirname, 'appstore.png'),
-          silent: false
-        });
-        notification.show();
-      }
+      // Removed notification for digital signage - button color change will indicate update is ready
     });
   }
 

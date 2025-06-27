@@ -96,12 +96,25 @@ saveBtn.addEventListener('click', () => {
 // Update button functionality
 updateBtn.addEventListener('click', () => {
   if (window.api && typeof window.api.send === 'function') {
-    // Show loading state
-    updateBtn.style.opacity = '0.6';
-    updateBtn.title = 'Checking for updates...';
+    // Check if we're in a specific update state
+    const currentTitle = updateBtn.title;
     
-    // Send update check request
-    window.api.send('check-for-updates');
+    if (currentTitle.includes('Update available:')) {
+      // Update is available - start download
+      window.api.send('download-update');
+      updateBtn.title = 'Downloading update...';
+      updateBtn.style.opacity = '0.8';
+    } else if (currentTitle.includes('Update ready:')) {
+      // Update is ready - install it
+      window.api.send('install-update');
+      updateBtn.title = 'Installing update...';
+      updateBtn.style.opacity = '0.6';
+    } else {
+      // Normal check for updates
+      updateBtn.style.opacity = '0.6';
+      updateBtn.title = 'Checking for updates...';
+      window.api.send('check-for-updates');
+    }
   } else {
     console.warn('API not available for update check');
     alert('Unable to check for updates');
@@ -116,51 +129,53 @@ if (window.api && typeof window.api.receive === 'function') {
     switch (statusData.status) {
       case 'checking':
         updateBtn.title = 'Checking for updates...';
+        updateBtn.style.opacity = '0.6';
         break;
         
       case 'available':
         updateBtn.title = `Update available: ${statusData.version}`;
         updateBtn.style.opacity = '1';
-        updateBtn.style.color = '#10b981'; // Green color for available update
-        // Show notification or alert
-        if (confirm(`New version ${statusData.version} is available! Would you like to download and install it?`)) {
-          window.api.send('download-update');
-          updateBtn.title = 'Downloading update...';
-        }
+        updateBtn.style.color = '#ef4444'; // Red color for available update (digital signage friendly)
+        updateBtn.style.backgroundColor = '#fee2e2'; // Light red background
+        // No confirm dialog - just change button color for silent indication
         break;
         
       case 'not-available':
         updateBtn.title = statusData.message || 'You have the latest version';
         updateBtn.style.opacity = '1';
         updateBtn.style.color = '#6b7280'; // Gray color for no update
+        updateBtn.style.backgroundColor = ''; // Reset background
         // Reset color after 3 seconds
         setTimeout(() => {
           updateBtn.style.color = '';
+          updateBtn.style.backgroundColor = '';
         }, 3000);
         break;
         
       case 'downloading':
         updateBtn.title = `Downloading... ${Math.round(statusData.progress || 0)}%`;
         updateBtn.style.opacity = '0.8';
+        updateBtn.style.color = '#f59e0b'; // Orange color for downloading
         break;
         
       case 'downloaded':
         updateBtn.title = `Update ready: ${statusData.version}`;
         updateBtn.style.opacity = '1';
-        updateBtn.style.color = '#10b981';
-        if (confirm('Update downloaded! Would you like to install it now? The app will restart.')) {
-          window.api.send('install-update');
-        }
+        updateBtn.style.color = '#10b981'; // Green color for ready to install
+        updateBtn.style.backgroundColor = '#d1fae5'; // Light green background
+        // No confirm dialog - just change button color for silent indication
         break;
         
       case 'error':
         updateBtn.title = `Error: ${statusData.error}`;
         updateBtn.style.opacity = '1';
         updateBtn.style.color = '#ef4444'; // Red color for error
+        updateBtn.style.backgroundColor = '#fee2e2'; // Light red background
         console.error('Update error:', statusData.error);
         // Reset color after 5 seconds
         setTimeout(() => {
           updateBtn.style.color = '';
+          updateBtn.style.backgroundColor = '';
         }, 5000);
         break;
         
@@ -168,6 +183,7 @@ if (window.api && typeof window.api.receive === 'function') {
         updateBtn.title = 'Check for updates';
         updateBtn.style.opacity = '1';
         updateBtn.style.color = '';
+        updateBtn.style.backgroundColor = '';
     }
   });
 }
