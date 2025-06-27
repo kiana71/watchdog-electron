@@ -22,93 +22,18 @@ log.info('Application starting...');
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
-// Configure GitHub repository for updates
+// Configure GitHub repository for updates with more explicit settings
 autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'kiana71',
   repo: 'watchdog-electron',
-  private: false // Set to true if your repo is private
+  private: false,
+  releaseType: 'release'
 });
 
-// Auto-updater event handlers
-autoUpdater.on('checking-for-update', () => {
-  log.info('Checking for updates...');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { status: 'checking' });
-  }
-});
-
-autoUpdater.on('update-available', (info) => {
-  log.info('Update available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      status: 'available', 
-      version: info.version 
-    });
-  }
-  
-  // Show system notification
-  if (Notification.isSupported()) {
-    const notification = new Notification({
-      title: 'Digital Signage Watchdog Update',
-      body: `New version ${info.version} is available! Click the update button to install.`,
-      icon: path.join(__dirname, 'appstore.png'),
-      silent: false
-    });
-    notification.show();
-  }
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  log.info('Update not available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      status: 'not-available',
-      message: 'You have the latest version'
-    });
-  }
-});
-
-autoUpdater.on('error', (err) => {
-  log.error('Auto-updater error:', err);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      status: 'error', 
-      error: err.message 
-    });
-  }
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  log.info('Download progress:', progressObj);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      status: 'downloading', 
-      progress: progressObj.percent 
-    });
-  }
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  log.info('Update downloaded:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      status: 'downloaded', 
-      version: info.version 
-    });
-  }
-  
-  // Show notification that update is ready
-  if (Notification.isSupported()) {
-    const notification = new Notification({
-      title: 'Digital Signage Watchdog Update',
-      body: 'Update downloaded! The app will restart to install the update.',
-      icon: path.join(__dirname, 'appstore.png'),
-      silent: false
-    });
-    notification.show();
-  }
-});
+// Add more detailed logging for debugging
+log.info('Auto-updater configured for GitHub repository: kiana71/watchdog-electron');
+log.info(`Current app version: ${appInfo.version}`);
 
 // Single instance lock - prevent multiple instances of the app
 const gotTheLock = app.requestSingleInstanceLock();
@@ -325,6 +250,98 @@ if (!gotTheLock) {
     
     // Start the watchdog client service
     startClientService();
+
+    // Register autoUpdater event handlers here, after mainWindow is defined:
+    autoUpdater.on('checking-for-update', () => {
+      log.info('Checking for updates...');
+      console.log('Checking for updates...');
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', { status: 'checking' });
+      }
+      setTimeout(() => {
+        log.warn('Update check timeout - no response received');
+        console.warn('Update check timeout - no response received');
+        if (mainWindow) {
+          mainWindow.webContents.send('update-status', {
+            status: 'error',
+            error: 'Update check timed out. Please try again.'
+          });
+        }
+      }, 30000); // 30 second timeout
+    });
+
+    autoUpdater.on('update-available', (info) => {
+      log.info('Update available:', info);
+      console.log('Update available:', info);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', {
+          status: 'available',
+          version: info.version
+        });
+      }
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: 'Digital Signage Watchdog Update',
+          body: `New version ${info.version} is available! Click the update button to install.`,
+          icon: path.join(__dirname, 'appstore.png'),
+          silent: false
+        });
+        notification.show();
+      }
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+      log.info('Update not available:', info);
+      console.log('Update not available:', info);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', {
+          status: 'not-available',
+          message: 'You have the latest version'
+        });
+      }
+    });
+
+    autoUpdater.on('error', (err) => {
+      log.error('Auto-updater error:', err);
+      console.error('Auto-updater error:', err);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', {
+          status: 'error',
+          error: err.message
+        });
+      }
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+      log.info('Download progress:', progressObj);
+      console.log('Download progress:', progressObj);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', {
+          status: 'downloading',
+          progress: progressObj.percent
+        });
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      log.info('Update downloaded:', info);
+      console.log('Update downloaded:', info);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', {
+          status: 'downloaded',
+          version: info.version
+        });
+      }
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: 'Digital Signage Watchdog Update',
+          body: 'Update downloaded! The app will restart to install the update.',
+          icon: path.join(__dirname, 'appstore.png'),
+          silent: false
+        });
+        notification.show();
+      }
+    });
   }
 
   function createTray() {
@@ -680,7 +697,34 @@ if (!gotTheLock) {
   // Handle manual update check
   ipcMain.on('check-for-updates', () => {
     log.info('Manual update check requested');
-    autoUpdater.checkForUpdates();
+    console.log('Manual update check requested');
+    
+    try {
+      // Log current configuration
+      log.info(`Current app version: ${appInfo.version}`);
+      log.info('Auto-updater feed URL:', autoUpdater.getFeedURL());
+      
+      // Check for updates
+      autoUpdater.checkForUpdates().catch((error) => {
+        log.error('Error during manual update check:', error);
+        console.error('Error during manual update check:', error);
+        if (mainWindow) {
+          mainWindow.webContents.send('update-status', { 
+            status: 'error', 
+            error: `Update check failed: ${error.message}` 
+          });
+        }
+      });
+    } catch (error) {
+      log.error('Failed to initiate update check:', error);
+      console.error('Failed to initiate update check:', error);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', { 
+          status: 'error', 
+          error: `Failed to check for updates: ${error.message}` 
+        });
+      }
+    }
   });
 
   // Handle update download and install
