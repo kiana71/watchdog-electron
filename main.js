@@ -258,16 +258,6 @@ if (!gotTheLock) {
       if (mainWindow) {
         mainWindow.webContents.send('update-status', { status: 'checking' });
       }
-      setTimeout(() => {
-        log.warn('Update check timeout - no response received');
-        console.warn('Update check timeout - no response received');
-        if (mainWindow) {
-          mainWindow.webContents.send('update-status', {
-            status: 'error',
-            error: 'Update check timed out. Please try again.'
-          });
-        }
-      }, 30000); // 30 second timeout
     });
 
     autoUpdater.on('update-available', (info) => {

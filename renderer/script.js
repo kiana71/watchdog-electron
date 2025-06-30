@@ -10,6 +10,7 @@ const updateBtn = document.getElementById('restart-btn'); // Actually the update
 let updateButtonState = {
   isUpdateReady: false,
   isInstalling: false,
+  hasUpdateDetected: false, // New flag to track if update was detected
   normalColor: '#a0a0a0' // Default color
 };
 
@@ -58,6 +59,7 @@ function resetUpdateButton() {
   updateBtn.style.opacity = '1';
   updateButtonState.isUpdateReady = false;
   updateButtonState.isInstalling = false;
+  updateButtonState.hasUpdateDetected = false; // Reset the update detected flag
 }
 
 // Listen for saved client name from main process
@@ -128,6 +130,7 @@ updateBtn.addEventListener('click', () => {
         updateBtn.title = 'Installing update...';
         updateBtn.style.opacity = '0.6';
         updateButtonState.isInstalling = true;
+        updateButtonState.hasUpdateDetected = false; // Reset the flag when installing
         
         // Reset button color immediately when installing starts
         const updateBtnSvg = updateBtn.querySelector('svg');
@@ -163,6 +166,8 @@ if (window.api && typeof window.api.receive === 'function') {
         updateButtonState.isInstalling = false;
         break;
       case 'available':
+        // Mark that an update was detected
+        updateButtonState.hasUpdateDetected = true;
         // Start download automatically when update is available
         window.api.send('download-update');
         updateBtn.title = 'Downloading update...';
@@ -171,14 +176,27 @@ if (window.api && typeof window.api.receive === 'function') {
         updateButtonState.isInstalling = true;
         break;
       case 'not-available':
-        updateBtn.title = 'Check for updates';
-        updateBtn.style.opacity = '1';
-        if (updateBtnSvg) {
-          updateBtnSvg.style.color = updateButtonState.normalColor;
-          updateBtnSvg.classList.remove('update-ready');
+        // Only reset to gray if no update was previously detected
+        if (!updateButtonState.hasUpdateDetected) {
+          updateBtn.title = 'Check for updates';
+          updateBtn.style.opacity = '1';
+          if (updateBtnSvg) {
+            updateBtnSvg.style.color = updateButtonState.normalColor;
+            updateBtnSvg.classList.remove('update-ready');
+          }
+          updateButtonState.isInstalling = false;
+          updateButtonState.isUpdateReady = false;
+        } else {
+          // If update was previously detected, keep the button red and ready
+          updateBtn.title = 'Update is ready';
+          updateBtn.style.opacity = '1';
+          if (updateBtnSvg) {
+            updateBtnSvg.style.color = '#ef4444'; // Red
+            updateBtnSvg.classList.add('update-ready');
+          }
+          updateButtonState.isUpdateReady = true;
+          updateButtonState.isInstalling = false;
         }
-        updateButtonState.isInstalling = false;
-        updateButtonState.isUpdateReady = false;
         break;
       case 'downloading':
         updateBtn.title = `Downloading... ${Math.round(statusData.progress || 0)}%`;
@@ -199,30 +217,54 @@ if (window.api && typeof window.api.receive === 'function') {
       case 'error':
         updateBtn.title = `Error: ${statusData.error}`;
         updateBtn.style.opacity = '1';
-        if (updateBtnSvg) {
-          updateBtnSvg.style.color = updateButtonState.normalColor;
-          updateBtnSvg.classList.remove('update-ready');
-        }
-        updateButtonState.isInstalling = false;
-        updateButtonState.isUpdateReady = false;
-        console.error('Update error:', statusData.error);
-        // Reset color after 5 seconds
-        setTimeout(() => {
+        // Only reset to gray if no update was previously detected
+        if (!updateButtonState.hasUpdateDetected) {
           if (updateBtnSvg) {
             updateBtnSvg.style.color = updateButtonState.normalColor;
             updateBtnSvg.classList.remove('update-ready');
           }
-        }, 5000);
+          updateButtonState.isInstalling = false;
+          updateButtonState.isUpdateReady = false;
+          console.error('Update error:', statusData.error);
+          // Reset color after 5 seconds
+          setTimeout(() => {
+            if (updateBtnSvg) {
+              updateBtnSvg.style.color = updateButtonState.normalColor;
+              updateBtnSvg.classList.remove('update-ready');
+            }
+          }, 5000);
+        } else {
+          // If update was previously detected, keep the button red and ready
+          if (updateBtnSvg) {
+            updateBtnSvg.style.color = '#ef4444'; // Red
+            updateBtnSvg.classList.add('update-ready');
+          }
+          updateButtonState.isUpdateReady = true;
+          updateButtonState.isInstalling = false;
+        }
         break;
       default:
-        updateBtn.title = 'Check for updates';
-        updateBtn.style.opacity = '1';
-        if (updateBtnSvg) {
-          updateBtnSvg.style.color = updateButtonState.normalColor;
-          updateBtnSvg.classList.remove('update-ready');
+        // Only reset to gray if no update was previously detected
+        if (!updateButtonState.hasUpdateDetected) {
+          updateBtn.title = 'Check for updates';
+          updateBtn.style.opacity = '1';
+          if (updateBtnSvg) {
+            updateBtnSvg.style.color = updateButtonState.normalColor;
+            updateBtnSvg.classList.remove('update-ready');
+          }
+          updateButtonState.isInstalling = false;
+          updateButtonState.isUpdateReady = false;
+        } else {
+          // If update was previously detected, keep the button red and ready
+          updateBtn.title = 'Update is ready';
+          updateBtn.style.opacity = '1';
+          if (updateBtnSvg) {
+            updateBtnSvg.style.color = '#ef4444'; // Red
+            updateBtnSvg.classList.add('update-ready');
+          }
+          updateButtonState.isUpdateReady = true;
+          updateButtonState.isInstalling = false;
         }
-        updateButtonState.isInstalling = false;
-        updateButtonState.isUpdateReady = false;
     }
   });
 }
