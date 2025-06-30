@@ -189,6 +189,71 @@ padding-top: 67px;
   width: 16px;
   height: 16px;
   color: #a0a0a0;
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+
+/* Update button specific styles */
+#restart-btn svg {
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+
+#restart-btn svg.update-ready {
+  color: #ef4444 !important;
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    color: #ef4444;
+    transform: scale(1);
+  }
+  50% {
+    color: #dc2626;
+    transform: scale(1.05);
+  }
+  100% {
+    color: #ef4444;
+    transform: scale(1);
+  }
+}
+
+#restart-btn:hover svg.update-ready {
+  animation: none;
+  transform: scale(1.1);
+}
+
+/* Enhanced tooltip for update ready state */
+#restart-btn[title="Update is ready"] {
+  position: relative;
+}
+
+#restart-btn[title="Update is ready"]:hover::after {
+  content: "Update is ready - Click to install";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+#restart-btn[title="Update is ready"]:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #333;
+  margin-bottom: 3px;
+  z-index: 1000;
 }
 
 #app-logo {

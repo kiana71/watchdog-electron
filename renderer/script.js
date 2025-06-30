@@ -6,6 +6,13 @@ const configInput = document.getElementById('config-input');
 const saveBtn = document.getElementById('save-btn');
 const updateBtn = document.getElementById('restart-btn'); // Actually the update button
 
+// Update button state management
+let updateButtonState = {
+  isUpdateReady: false,
+  isInstalling: false,
+  normalColor: '#a0a0a0' // Default color
+};
+
 // Set version - with fallback if API isn't available
 try {
   if (window.api && typeof window.api.getVersion === 'function') {
@@ -35,7 +42,23 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`Loaded computer name: ${computerName}`);
     }
   }
+  
+  // Reset update button to normal state on startup
+  resetUpdateButton();
 });
+
+// Function to reset update button to normal state
+function resetUpdateButton() {
+  const updateBtnSvg = updateBtn.querySelector('svg');
+  if (updateBtnSvg) {
+    updateBtnSvg.style.color = updateButtonState.normalColor;
+    updateBtnSvg.classList.remove('update-ready');
+  }
+  updateBtn.title = 'Check for updates';
+  updateBtn.style.opacity = '1';
+  updateButtonState.isUpdateReady = false;
+  updateButtonState.isInstalling = false;
+}
 
 // Listen for saved client name from main process
 if (window.api && typeof window.api.receive === 'function') {
@@ -96,19 +119,23 @@ saveBtn.addEventListener('click', () => {
 // Update button functionality
 updateBtn.addEventListener('click', () => {
   if (window.api && typeof window.api.send === 'function') {
-    // Check if we're in a specific update state
-    const currentTitle = updateBtn.title;
-    
-    if (currentTitle.includes('Update available:')) {
-      // Update is available - start download
-      window.api.send('download-update');
-      updateBtn.title = 'Downloading update...';
-      updateBtn.style.opacity = '0.8';
-    } else if (currentTitle.includes('Update ready:')) {
-      // Update is ready - install it
-      window.api.send('install-update');
-      updateBtn.title = 'Installing update...';
-      updateBtn.style.opacity = '0.6';
+    // Check if we're in update ready state
+    if (updateButtonState.isUpdateReady) {
+      // Show confirmation alert
+      const confirmed = confirm('Do you want to install the update?');
+      if (confirmed) {
+        window.api.send('install-update');
+        updateBtn.title = 'Installing update...';
+        updateBtn.style.opacity = '0.6';
+        updateButtonState.isInstalling = true;
+        
+        // Reset button color immediately when installing starts
+        const updateBtnSvg = updateBtn.querySelector('svg');
+        if (updateBtnSvg) {
+          updateBtnSvg.style.color = updateButtonState.normalColor;
+          updateBtnSvg.classList.remove('update-ready');
+        }
+      }
     } else {
       // Normal check for updates
       updateBtn.style.opacity = '0.6';
@@ -127,50 +154,75 @@ if (window.api && typeof window.api.receive === 'function') {
     console.log('Update status received:', statusData);
     // Get the SVG inside the update button
     const updateBtnSvg = updateBtn.querySelector('svg');
+    
     switch (statusData.status) {
       case 'checking':
         updateBtn.title = 'Checking for updates...';
         updateBtn.style.opacity = '0.6';
-        if (updateBtnSvg) updateBtnSvg.style.color = '#10b981'; // Green
+        if (updateBtnSvg) updateBtnSvg.style.color = updateButtonState.normalColor;
+        updateButtonState.isInstalling = false;
         break;
       case 'available':
-        updateBtn.title = `Update available: ${statusData.version}`;
-        updateBtn.style.opacity = '1';
-        if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0'; // Default
+        // Start download automatically when update is available
+        window.api.send('download-update');
+        updateBtn.title = 'Downloading update...';
+        updateBtn.style.opacity = '0.8';
+        if (updateBtnSvg) updateBtnSvg.style.color = updateButtonState.normalColor;
+        updateButtonState.isInstalling = true;
         break;
       case 'not-available':
-        updateBtn.title = statusData.message || 'You have the latest version';
+        updateBtn.title = 'Check for updates';
         updateBtn.style.opacity = '1';
-        if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0'; // Default
-        // Reset color after 3 seconds
-        setTimeout(() => {
-          if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0';
-        }, 3000);
+        if (updateBtnSvg) {
+          updateBtnSvg.style.color = updateButtonState.normalColor;
+          updateBtnSvg.classList.remove('update-ready');
+        }
+        updateButtonState.isInstalling = false;
+        updateButtonState.isUpdateReady = false;
         break;
       case 'downloading':
         updateBtn.title = `Downloading... ${Math.round(statusData.progress || 0)}%`;
         updateBtn.style.opacity = '0.8';
-        if (updateBtnSvg) updateBtnSvg.style.color = '#10b981'; // Green
+        if (updateBtnSvg) updateBtnSvg.style.color = updateButtonState.normalColor;
+        updateButtonState.isInstalling = true;
         break;
       case 'downloaded':
-        updateBtn.title = `Update ready: ${statusData.version}`;
+        updateBtn.title = 'Update is ready';
         updateBtn.style.opacity = '1';
-        if (updateBtnSvg) updateBtnSvg.style.color = '#ef4444'; // Red
+        if (updateBtnSvg) {
+          updateBtnSvg.style.color = '#ef4444'; // Red
+          updateBtnSvg.classList.add('update-ready'); // Add pulsing animation
+        }
+        updateButtonState.isUpdateReady = true;
+        updateButtonState.isInstalling = false;
         break;
       case 'error':
         updateBtn.title = `Error: ${statusData.error}`;
         updateBtn.style.opacity = '1';
-        if (updateBtnSvg) updateBtnSvg.style.color = '#ef4444'; // Red
+        if (updateBtnSvg) {
+          updateBtnSvg.style.color = updateButtonState.normalColor;
+          updateBtnSvg.classList.remove('update-ready');
+        }
+        updateButtonState.isInstalling = false;
+        updateButtonState.isUpdateReady = false;
         console.error('Update error:', statusData.error);
         // Reset color after 5 seconds
         setTimeout(() => {
-          if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0';
+          if (updateBtnSvg) {
+            updateBtnSvg.style.color = updateButtonState.normalColor;
+            updateBtnSvg.classList.remove('update-ready');
+          }
         }, 5000);
         break;
       default:
         updateBtn.title = 'Check for updates';
         updateBtn.style.opacity = '1';
-        if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0'; // Default
+        if (updateBtnSvg) {
+          updateBtnSvg.style.color = updateButtonState.normalColor;
+          updateBtnSvg.classList.remove('update-ready');
+        }
+        updateButtonState.isInstalling = false;
+        updateButtonState.isUpdateReady = false;
     }
   });
 }
