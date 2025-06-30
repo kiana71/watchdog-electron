@@ -12,11 +12,11 @@ try {
     versionText.textContent = `Version: ${window.api.getVersion()}`;
   } else {
     console.warn('API not available, using default version');
-    versionText.textContent = 'Version: 1.0.0';
+    versionText.textContent = 'Version: 1.0.7';
   }
 } catch (error) {
   console.error('Error setting version:', error);
-  versionText.textContent = 'Version: 1.0.0';
+  versionText.textContent = 'Version: 1.0.7';
 }
 
 // Load saved client name on startup
@@ -125,65 +125,52 @@ updateBtn.addEventListener('click', () => {
 if (window.api && typeof window.api.receive === 'function') {
   window.api.receive('update-status', (statusData) => {
     console.log('Update status received:', statusData);
-    
+    // Get the SVG inside the update button
+    const updateBtnSvg = updateBtn.querySelector('svg');
     switch (statusData.status) {
       case 'checking':
         updateBtn.title = 'Checking for updates...';
         updateBtn.style.opacity = '0.6';
+        if (updateBtnSvg) updateBtnSvg.style.color = '#10b981'; // Green
         break;
-        
       case 'available':
         updateBtn.title = `Update available: ${statusData.version}`;
         updateBtn.style.opacity = '1';
-        updateBtn.style.color = '#ef4444'; // Red color for available update (digital signage friendly)
-        updateBtn.style.backgroundColor = '#fee2e2'; // Light red background
-        // No confirm dialog - just change button color for silent indication
+        if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0'; // Default
         break;
-        
       case 'not-available':
         updateBtn.title = statusData.message || 'You have the latest version';
         updateBtn.style.opacity = '1';
-        updateBtn.style.color = '#6b7280'; // Gray color for no update
-        updateBtn.style.backgroundColor = ''; // Reset background
+        if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0'; // Default
         // Reset color after 3 seconds
         setTimeout(() => {
-          updateBtn.style.color = '';
-          updateBtn.style.backgroundColor = '';
+          if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0';
         }, 3000);
         break;
-        
       case 'downloading':
         updateBtn.title = `Downloading... ${Math.round(statusData.progress || 0)}%`;
         updateBtn.style.opacity = '0.8';
-        updateBtn.style.color = '#f59e0b'; // Orange color for downloading
+        if (updateBtnSvg) updateBtnSvg.style.color = '#10b981'; // Green
         break;
-        
       case 'downloaded':
         updateBtn.title = `Update ready: ${statusData.version}`;
         updateBtn.style.opacity = '1';
-        updateBtn.style.color = '#10b981'; // Green color for ready to install
-        updateBtn.style.backgroundColor = '#d1fae5'; // Light green background
-        // No confirm dialog - just change button color for silent indication
+        if (updateBtnSvg) updateBtnSvg.style.color = '#ef4444'; // Red
         break;
-        
       case 'error':
         updateBtn.title = `Error: ${statusData.error}`;
         updateBtn.style.opacity = '1';
-        updateBtn.style.color = '#ef4444'; // Red color for error
-        updateBtn.style.backgroundColor = '#fee2e2'; // Light red background
+        if (updateBtnSvg) updateBtnSvg.style.color = '#ef4444'; // Red
         console.error('Update error:', statusData.error);
         // Reset color after 5 seconds
         setTimeout(() => {
-          updateBtn.style.color = '';
-          updateBtn.style.backgroundColor = '';
+          if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0';
         }, 5000);
         break;
-        
       default:
         updateBtn.title = 'Check for updates';
         updateBtn.style.opacity = '1';
-        updateBtn.style.color = '';
-        updateBtn.style.backgroundColor = '';
+        if (updateBtnSvg) updateBtnSvg.style.color = '#a0a0a0'; // Default
     }
   });
 }
