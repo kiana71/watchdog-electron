@@ -198,7 +198,7 @@ padding-top: 67px;
 }
 
 #restart-btn svg.update-ready {
-  color: #ef4444 !important;
+  color: #f14d4d !important;
   animation: pulse-red 2s infinite;
 }
 
