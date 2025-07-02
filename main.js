@@ -79,6 +79,18 @@ if (!gotTheLock) {
   // Initialize remote module
   remote.initialize();
 
+  // Apply auto-update settings on startup
+  const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+  if (autoUpdateEnabled) {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    log.info('Auto update enabled on startup - updates will be downloaded and installed automatically');
+  } else {
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+    log.info('Auto update disabled on startup - updates will require manual intervention');
+  }
+
   // Path to the watchdog client executable
   // const clientPath = path.join(path.dirname(app.getAppPath()), 'watchdog-client', 'index.js');
   // In development, use the local path. In production, use extraResources
@@ -320,7 +332,7 @@ if (!gotTheLock) {
           autoUpdater.quitAndInstall();
         }, 2000); // Small delay to allow user to see the update was found
       } else {
-        // Manual update - notify the UI
+        // Manual update - notify the UI and turn button red
         if (mainWindow && mainWindow.webContents) {
           mainWindow.webContents.send('update-status', {
             status: 'downloaded',
@@ -639,14 +651,11 @@ if (!gotTheLock) {
     // Check for updates automatically on startup (but delay it a bit)
     setTimeout(() => {
       log.info('Checking for updates on startup...');
-      // Only check for updates if auto update is enabled
+      // Always check for updates on startup to show button state
+      // The auto-update setting will control whether updates are auto-installed
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
-      if (autoUpdateEnabled) {
-        log.info('Auto update is enabled - checking for updates on startup');
-        autoUpdater.checkForUpdates();
-      } else {
-        log.info('Auto update is disabled - skipping startup update check');
-      }
+      log.info(`Auto update setting: ${autoUpdateEnabled} - checking for updates on startup`);
+      autoUpdater.checkForUpdates();
     }, 10000); // Check after 10 seconds to let app fully load
     
     // On Windows, create the tray icon (it's the primary target platform)
@@ -822,19 +831,25 @@ if (!gotTheLock) {
       console.log(`Loaded saved auto update setting: ${enabled}`);
       event.sender.send('auto-update-setting-loaded', enabled);
       
-      // Apply the setting to autoUpdater
+      // Apply the setting to autoUpdater immediately
       if (enabled) {
         autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = true;
+        log.info('Auto update enabled - updates will be downloaded and installed automatically');
       } else {
         autoUpdater.autoDownload = false;
         autoUpdater.autoInstallOnAppQuit = false;
+        log.info('Auto update disabled - updates will require manual intervention');
       }
     } catch (error) {
       log.error('Error loading saved auto update setting:', error);
       console.error('Error loading saved auto update setting:', error);
       // Send default value (false) if there's an error
       event.sender.send('auto-update-setting-loaded', false);
+      
+      // Apply default setting to autoUpdater
+      autoUpdater.autoDownload = false;
+      autoUpdater.autoInstallOnAppQuit = false;
     }
   });
 

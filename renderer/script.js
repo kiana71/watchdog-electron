@@ -11,7 +11,7 @@ const toggleInput = document.getElementById('checkbox'); // Auto update toggle
 let updateButtonState = {
   isUpdateReady: false,
   isInstalling: false,
-  hasUpdateDetected: false, // New flag to track if update was detected
+  hasUpdateDetected: false, // Track if update was detected
   normalColor: '#a0a0a0' // Default color
 };
 
@@ -47,11 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Reset update button to normal state on startup
-  resetUpdateButton();
+  // Don't reset update button on startup - let it maintain its state
+  // The main process will send update status if an update is available
 });
 
-// Function to reset update button to normal state
+// Function to reset update button to normal state (only for manual checks)
 function resetUpdateButton() {
   const updateBtnSvg = updateBtn.querySelector('svg');
   if (updateBtnSvg) {
@@ -62,7 +62,7 @@ function resetUpdateButton() {
   updateBtn.style.opacity = '1';
   updateButtonState.isUpdateReady = false;
   updateButtonState.isInstalling = false;
-  updateButtonState.hasUpdateDetected = false; // Reset the update detected flag
+  updateButtonState.hasUpdateDetected = false;
 }
 
 // Listen for saved client name from main process
