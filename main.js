@@ -67,7 +67,7 @@ if (!gotTheLock) {
   const autoLauncher = new AutoLaunch({
     name: 'Digital Signage Watchdog',
     path: app.getPath('exe'),
-    args: ['--hidden', '--startup'] //Add both hidden and
+    args: ['--hidden', '--startup', '--auto-launch']
   });
 
   // Keep a global reference of the window and tray objects
@@ -187,7 +187,9 @@ if (!gotTheLock) {
                          app.getLoginItemSettings().wasOpenedAtLogin ||
                          process.env.STARTUP_MODE === 'auto' ||
                          // Check if launched from Windows startup folder or registry
-                         (process.platform === 'win32' && process.argv.length === 1);
+                         (process.platform === 'win32' && process.argv.length === 1) ||
+                         // Additional check for auto-launch scenarios
+                         process.argv.includes('--auto-launch');
 
     console.log('Process arguments:', process.argv);
     console.log('Login item settings:', app.getLoginItemSettings());
@@ -663,12 +665,29 @@ if (!gotTheLock) {
     console.log('App exe path:', app.getPath('exe'));
     console.log('Working directory:', process.cwd());
     console.log('Login item settings:', app.getLoginItemSettings());
+    console.log('Environment variables:', {
+      NODE_ENV: process.env.NODE_ENV,
+      STARTUP_MODE: process.env.STARTUP_MODE,
+      USER_LAUNCHED: process.env.USER_LAUNCHED
+    });
     console.log('================================');
+    
+    // Log startup info to file as well
+    log.info('=== APP STARTUP DEBUG INFO ===');
+    log.info(`App ready, platform: ${process.platform}`);
+    log.info(`Process arguments: ${JSON.stringify(process.argv)}`);
+    log.info(`Process execPath: ${process.execPath}`);
+    log.info(`App path: ${app.getAppPath()}`);
+    log.info(`App exe path: ${app.getPath('exe')}`);
+    log.info(`Working directory: ${process.cwd()}`);
+    log.info(`Login item settings: ${JSON.stringify(app.getLoginItemSettings())}`);
+    log.info('================================');
     
     // Always enable auto-launch for watchdog functionality
     try {
       const isEnabled = await autoLauncher.isEnabled();
       console.log('Auto-launch currently enabled:', isEnabled);
+      log.info(`Auto-launch currently enabled: ${isEnabled}`);
       
       if (!isEnabled) {
         // Always enable auto-launch for watchdog functionality
@@ -679,9 +698,38 @@ if (!gotTheLock) {
         console.log('Auto-launch already enabled');
         log.info('Auto-launch already enabled');
       }
+      
+      // Double-check that auto-launch is properly configured
+      const finalCheck = await autoLauncher.isEnabled();
+      console.log('Final auto-launch check:', finalCheck);
+      log.info(`Final auto-launch check: ${finalCheck}`);
+      
     } catch (error) {
       console.error('Failed to configure auto-launch:', error);
       log.error('Failed to configure auto-launch:', error);
+      
+      // Try alternative approach for Windows
+      if (process.platform === 'win32') {
+        try {
+          console.log('Trying alternative auto-launch method for Windows...');
+          log.info('Trying alternative auto-launch method for Windows...');
+          
+          // Create a new auto-launcher instance with different configuration
+          const altAutoLauncher = new AutoLaunch({
+            name: 'Digital Signage Watchdog',
+            path: app.getPath('exe'),
+            args: ['--hidden', '--startup', '--auto-launch'],
+            isHidden: true
+          });
+          
+          await altAutoLauncher.enable();
+          console.log('Alternative auto-launch method successful');
+          log.info('Alternative auto-launch method successful');
+        } catch (altError) {
+          console.error('Alternative auto-launch method also failed:', altError);
+          log.error('Alternative auto-launch method also failed:', altError);
+        }
+      }
     }
     
     createWindow();
