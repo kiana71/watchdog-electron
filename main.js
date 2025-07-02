@@ -60,14 +60,19 @@ if (!gotTheLock) {
     }
   });
 
-  //Initialize settings store
-  const store = new Store({ name: 'config' });
+  //Initialize settings store with explicit configuration
+  const store = new Store({
+    name: 'config', // Use consistent filename
+    defaults: {
+      autoUpdateEnabled: false
+    }
+  });
 
   // Configure auto-launch
   const autoLauncher = new AutoLaunch({
     name: 'Digital Signage Watchdog',
     path: app.getPath('exe'),
-    args: ['--hidden', '--startup', '--auto-launch']
+    args: ['--hidden', '--startup'] //Add both hidden and
   });
 
   // Keep a global reference of the window and tray objects
@@ -81,12 +86,11 @@ if (!gotTheLock) {
 
   // Apply auto-update settings on startup
   const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+  log.info(`Auto update setting on startup: ${autoUpdateEnabled}`);
   if (autoUpdateEnabled) {
     autoUpdater.autoDownload = true;
-    // Don't use autoInstallOnAppQuit since this app runs continuously
-    // Updates will be installed immediately when downloaded
-    autoUpdater.autoInstallOnAppQuit = false;
-    log.info('Auto update enabled on startup - updates will be downloaded and installed immediately');
+    autoUpdater.autoInstallOnAppQuit = true;
+    log.info('Auto update enabled on startup - updates will be downloaded and installed automatically');
   } else {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
@@ -187,9 +191,7 @@ if (!gotTheLock) {
                          app.getLoginItemSettings().wasOpenedAtLogin ||
                          process.env.STARTUP_MODE === 'auto' ||
                          // Check if launched from Windows startup folder or registry
-                         (process.platform === 'win32' && process.argv.length === 1) ||
-                         // Additional check for auto-launch scenarios
-                         process.argv.includes('--auto-launch');
+                         (process.platform === 'win32' && process.argv.length === 1);
 
     console.log('Process arguments:', process.argv);
     console.log('Login item settings:', app.getLoginItemSettings());
@@ -267,26 +269,6 @@ if (!gotTheLock) {
     // Start the watchdog client service
     startClientService();
 
-    // Check for updates on startup (especially important for auto-started apps)
-    setTimeout(() => {
-      log.info('Checking for updates on startup...');
-      console.log('Checking for updates on startup...');
-      autoUpdater.checkForUpdates().catch((error) => {
-        log.error('Error checking for updates on startup:', error);
-        console.error('Error checking for updates on startup:', error);
-      });
-    }, 5000); // Wait 5 seconds after startup to check for updates
-
-    // Check for updates on startup (especially important for auto-started apps)
-    setTimeout(() => {
-      log.info('Checking for updates on startup...');
-      console.log('Checking for updates on startup...');
-      autoUpdater.checkForUpdates().catch((error) => {
-        log.error('Error checking for updates on startup:', error);
-        console.error('Error checking for updates on startup:', error);
-      });
-    }, 5000); // Wait 5 seconds after startup to check for updates
-
     // Register autoUpdater event handlers here, after mainWindow is defined:
     autoUpdater.on('checking-for-update', () => {
       log.info('Checking for updates...');
@@ -347,30 +329,19 @@ if (!gotTheLock) {
       
       // Check if auto update is enabled
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+      log.info(`Auto update setting when update downloaded: ${autoUpdateEnabled}`);
       
       if (autoUpdateEnabled) {
-        // Auto install the update immediately
+        // Auto install the update
         log.info('Auto update is enabled - installing update automatically');
         console.log('Auto update is enabled - installing update automatically');
         
-        // For background/auto-started apps, install immediately
-        // For manually started apps, give a small delay
-        const isAutoStarted = process.argv.includes('--hidden') || 
-                             process.argv.includes('--startup') ||
-                             app.getLoginItemSettings().wasOpenedAtLogin;
-        
-        const installDelay = isAutoStarted ? 1000 : 2000; // Shorter delay for auto-started apps
+        // Set quitting flag to prevent window close prevention
+        isQuitting = true;
         
         setTimeout(() => {
-          log.info('Installing update now...');
-          console.log('Installing update now...');
-          
-          // Set isQuitting to true so the app doesn't prevent quit
-          isQuitting = true;
-          
-          // Use quitAndInstall with proper options for Windows
-          autoUpdater.quitAndInstall(false, true); // false = not silent, true = force close
-        }, installDelay);
+          autoUpdater.quitAndInstall(false, true);
+        }, 2000); // Small delay to allow user to see the update was found
       } else {
         // Manual update - notify the UI and turn button red
         if (mainWindow && mainWindow.webContents) {
@@ -665,29 +636,12 @@ if (!gotTheLock) {
     console.log('App exe path:', app.getPath('exe'));
     console.log('Working directory:', process.cwd());
     console.log('Login item settings:', app.getLoginItemSettings());
-    console.log('Environment variables:', {
-      NODE_ENV: process.env.NODE_ENV,
-      STARTUP_MODE: process.env.STARTUP_MODE,
-      USER_LAUNCHED: process.env.USER_LAUNCHED
-    });
     console.log('================================');
-    
-    // Log startup info to file as well
-    log.info('=== APP STARTUP DEBUG INFO ===');
-    log.info(`App ready, platform: ${process.platform}`);
-    log.info(`Process arguments: ${JSON.stringify(process.argv)}`);
-    log.info(`Process execPath: ${process.execPath}`);
-    log.info(`App path: ${app.getAppPath()}`);
-    log.info(`App exe path: ${app.getPath('exe')}`);
-    log.info(`Working directory: ${process.cwd()}`);
-    log.info(`Login item settings: ${JSON.stringify(app.getLoginItemSettings())}`);
-    log.info('================================');
     
     // Always enable auto-launch for watchdog functionality
     try {
       const isEnabled = await autoLauncher.isEnabled();
       console.log('Auto-launch currently enabled:', isEnabled);
-      log.info(`Auto-launch currently enabled: ${isEnabled}`);
       
       if (!isEnabled) {
         // Always enable auto-launch for watchdog functionality
@@ -698,38 +652,9 @@ if (!gotTheLock) {
         console.log('Auto-launch already enabled');
         log.info('Auto-launch already enabled');
       }
-      
-      // Double-check that auto-launch is properly configured
-      const finalCheck = await autoLauncher.isEnabled();
-      console.log('Final auto-launch check:', finalCheck);
-      log.info(`Final auto-launch check: ${finalCheck}`);
-      
     } catch (error) {
       console.error('Failed to configure auto-launch:', error);
       log.error('Failed to configure auto-launch:', error);
-      
-      // Try alternative approach for Windows
-      if (process.platform === 'win32') {
-        try {
-          console.log('Trying alternative auto-launch method for Windows...');
-          log.info('Trying alternative auto-launch method for Windows...');
-          
-          // Create a new auto-launcher instance with different configuration
-          const altAutoLauncher = new AutoLaunch({
-            name: 'Digital Signage Watchdog',
-            path: app.getPath('exe'),
-            args: ['--hidden', '--startup', '--auto-launch'],
-            isHidden: true
-          });
-          
-          await altAutoLauncher.enable();
-          console.log('Alternative auto-launch method successful');
-          log.info('Alternative auto-launch method successful');
-        } catch (altError) {
-          console.error('Alternative auto-launch method also failed:', altError);
-          log.error('Alternative auto-launch method also failed:', altError);
-        }
-      }
     }
     
     createWindow();
@@ -741,18 +666,6 @@ if (!gotTheLock) {
       // The auto-update setting will control whether updates are auto-installed
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
       log.info(`Auto update setting: ${autoUpdateEnabled} - checking for updates on startup`);
-      
-      // Apply the setting to autoUpdater before checking for updates
-      if (autoUpdateEnabled) {
-        autoUpdater.autoDownload = true;
-        autoUpdater.autoInstallOnAppQuit = false;
-        log.info('Auto update enabled for startup check - updates will be downloaded and installed immediately');
-      } else {
-        autoUpdater.autoDownload = false;
-        autoUpdater.autoInstallOnAppQuit = false;
-        log.info('Auto update disabled for startup check - updates will require manual intervention');
-      }
-      
       autoUpdater.checkForUpdates();
     }, 10000); // Check after 10 seconds to let app fully load
     
@@ -837,12 +750,7 @@ if (!gotTheLock) {
   // Handle update install
   ipcMain.on('install-update', () => {
     log.info('Manual update install requested');
-    
-    // Set isQuitting to true so the app doesn't prevent quit
-    isQuitting = true;
-    
-    // Use quitAndInstall with proper options for Windows
-    autoUpdater.quitAndInstall(false, true); // false = not silent, true = force close
+    autoUpdater.quitAndInstall();
   });
 
   // Handle save client name
@@ -917,10 +825,8 @@ if (!gotTheLock) {
     // Update autoUpdater settings
     if (enabled) {
       autoUpdater.autoDownload = true;
-      // Don't use autoInstallOnAppQuit since this app runs continuously
-      // Updates will be installed immediately when downloaded
-      autoUpdater.autoInstallOnAppQuit = false;
-      log.info('Auto update enabled - updates will be downloaded and installed immediately');
+      autoUpdater.autoInstallOnAppQuit = true;
+      log.info('Auto update enabled - updates will be downloaded and installed automatically');
     } else {
       autoUpdater.autoDownload = false;
       autoUpdater.autoInstallOnAppQuit = false;
@@ -939,10 +845,8 @@ if (!gotTheLock) {
       // Apply the setting to autoUpdater immediately
       if (enabled) {
         autoUpdater.autoDownload = true;
-        // Don't use autoInstallOnAppQuit since this app runs continuously
-        // Updates will be installed immediately when downloaded
-        autoUpdater.autoInstallOnAppQuit = false;
-        log.info('Auto update enabled - updates will be downloaded and installed immediately');
+        autoUpdater.autoInstallOnAppQuit = true;
+        log.info('Auto update enabled - updates will be downloaded and installed automatically');
       } else {
         autoUpdater.autoDownload = false;
         autoUpdater.autoInstallOnAppQuit = false;
