@@ -61,7 +61,7 @@ if (!gotTheLock) {
   });
 
   //Initialize settings store
-  const store = new Store();
+  const store = new Store({ name: 'config' });
 
   // Configure auto-launch
   const autoLauncher = new AutoLaunch({
@@ -362,7 +362,12 @@ if (!gotTheLock) {
         setTimeout(() => {
           log.info('Installing update now...');
           console.log('Installing update now...');
-          autoUpdater.quitAndInstall();
+          
+          // Set isQuitting to true so the app doesn't prevent quit
+          isQuitting = true;
+          
+          // Use quitAndInstall with proper options for Windows
+          autoUpdater.quitAndInstall(false, true); // false = not silent, true = force close
         }, installDelay);
       } else {
         // Manual update - notify the UI and turn button red
@@ -688,6 +693,18 @@ if (!gotTheLock) {
       // The auto-update setting will control whether updates are auto-installed
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
       log.info(`Auto update setting: ${autoUpdateEnabled} - checking for updates on startup`);
+      
+      // Apply the setting to autoUpdater before checking for updates
+      if (autoUpdateEnabled) {
+        autoUpdater.autoDownload = true;
+        autoUpdater.autoInstallOnAppQuit = false;
+        log.info('Auto update enabled for startup check - updates will be downloaded and installed immediately');
+      } else {
+        autoUpdater.autoDownload = false;
+        autoUpdater.autoInstallOnAppQuit = false;
+        log.info('Auto update disabled for startup check - updates will require manual intervention');
+      }
+      
       autoUpdater.checkForUpdates();
     }, 10000); // Check after 10 seconds to let app fully load
     
@@ -772,7 +789,12 @@ if (!gotTheLock) {
   // Handle update install
   ipcMain.on('install-update', () => {
     log.info('Manual update install requested');
-    autoUpdater.quitAndInstall();
+    
+    // Set isQuitting to true so the app doesn't prevent quit
+    isQuitting = true;
+    
+    // Use quitAndInstall with proper options for Windows
+    autoUpdater.quitAndInstall(false, true); // false = not silent, true = force close
   });
 
   // Handle save client name
