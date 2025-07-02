@@ -83,8 +83,10 @@ if (!gotTheLock) {
   const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
   if (autoUpdateEnabled) {
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
-    log.info('Auto update enabled on startup - updates will be downloaded and installed automatically');
+    // Don't use autoInstallOnAppQuit since this app runs continuously
+    // Updates will be installed immediately when downloaded
+    autoUpdater.autoInstallOnAppQuit = false;
+    log.info('Auto update enabled on startup - updates will be downloaded and installed immediately');
   } else {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
@@ -263,6 +265,26 @@ if (!gotTheLock) {
     // Start the watchdog client service
     startClientService();
 
+    // Check for updates on startup (especially important for auto-started apps)
+    setTimeout(() => {
+      log.info('Checking for updates on startup...');
+      console.log('Checking for updates on startup...');
+      autoUpdater.checkForUpdates().catch((error) => {
+        log.error('Error checking for updates on startup:', error);
+        console.error('Error checking for updates on startup:', error);
+      });
+    }, 5000); // Wait 5 seconds after startup to check for updates
+
+    // Check for updates on startup (especially important for auto-started apps)
+    setTimeout(() => {
+      log.info('Checking for updates on startup...');
+      console.log('Checking for updates on startup...');
+      autoUpdater.checkForUpdates().catch((error) => {
+        log.error('Error checking for updates on startup:', error);
+        console.error('Error checking for updates on startup:', error);
+      });
+    }, 5000); // Wait 5 seconds after startup to check for updates
+
     // Register autoUpdater event handlers here, after mainWindow is defined:
     autoUpdater.on('checking-for-update', () => {
       log.info('Checking for updates...');
@@ -325,12 +347,23 @@ if (!gotTheLock) {
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
       
       if (autoUpdateEnabled) {
-        // Auto install the update
+        // Auto install the update immediately
         log.info('Auto update is enabled - installing update automatically');
         console.log('Auto update is enabled - installing update automatically');
+        
+        // For background/auto-started apps, install immediately
+        // For manually started apps, give a small delay
+        const isAutoStarted = process.argv.includes('--hidden') || 
+                             process.argv.includes('--startup') ||
+                             app.getLoginItemSettings().wasOpenedAtLogin;
+        
+        const installDelay = isAutoStarted ? 1000 : 2000; // Shorter delay for auto-started apps
+        
         setTimeout(() => {
+          log.info('Installing update now...');
+          console.log('Installing update now...');
           autoUpdater.quitAndInstall();
-        }, 2000); // Small delay to allow user to see the update was found
+        }, installDelay);
       } else {
         // Manual update - notify the UI and turn button red
         if (mainWindow && mainWindow.webContents) {
@@ -814,8 +847,10 @@ if (!gotTheLock) {
     // Update autoUpdater settings
     if (enabled) {
       autoUpdater.autoDownload = true;
-      autoUpdater.autoInstallOnAppQuit = true;
-      log.info('Auto update enabled - updates will be downloaded and installed automatically');
+      // Don't use autoInstallOnAppQuit since this app runs continuously
+      // Updates will be installed immediately when downloaded
+      autoUpdater.autoInstallOnAppQuit = false;
+      log.info('Auto update enabled - updates will be downloaded and installed immediately');
     } else {
       autoUpdater.autoDownload = false;
       autoUpdater.autoInstallOnAppQuit = false;
@@ -834,8 +869,10 @@ if (!gotTheLock) {
       // Apply the setting to autoUpdater immediately
       if (enabled) {
         autoUpdater.autoDownload = true;
-        autoUpdater.autoInstallOnAppQuit = true;
-        log.info('Auto update enabled - updates will be downloaded and installed automatically');
+        // Don't use autoInstallOnAppQuit since this app runs continuously
+        // Updates will be installed immediately when downloaded
+        autoUpdater.autoInstallOnAppQuit = false;
+        log.info('Auto update enabled - updates will be downloaded and installed immediately');
       } else {
         autoUpdater.autoDownload = false;
         autoUpdater.autoInstallOnAppQuit = false;
