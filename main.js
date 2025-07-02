@@ -308,13 +308,26 @@ if (!gotTheLock) {
     autoUpdater.on('update-downloaded', (info) => {
       log.info('Update downloaded:', info);
       console.log('Update downloaded:', info);
-      if (mainWindow && mainWindow.webContents) {
-        mainWindow.webContents.send('update-status', {
-          status: 'downloaded',
-          version: info.version
-        });
+      
+      // Check if auto update is enabled
+      const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+      
+      if (autoUpdateEnabled) {
+        // Auto install the update
+        log.info('Auto update is enabled - installing update automatically');
+        console.log('Auto update is enabled - installing update automatically');
+        setTimeout(() => {
+          autoUpdater.quitAndInstall();
+        }, 2000); // Small delay to allow user to see the update was found
+      } else {
+        // Manual update - notify the UI
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.send('update-status', {
+            status: 'downloaded',
+            version: info.version
+          });
+        }
       }
-      // Removed notification for digital signage - button color change will indicate update is ready
     });
   }
 
@@ -626,7 +639,14 @@ if (!gotTheLock) {
     // Check for updates automatically on startup (but delay it a bit)
     setTimeout(() => {
       log.info('Checking for updates on startup...');
-      autoUpdater.checkForUpdates();
+      // Only check for updates if auto update is enabled
+      const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+      if (autoUpdateEnabled) {
+        log.info('Auto update is enabled - checking for updates on startup');
+        autoUpdater.checkForUpdates();
+      } else {
+        log.info('Auto update is disabled - skipping startup update check');
+      }
     }, 10000); // Check after 10 seconds to let app fully load
     
     // On Windows, create the tray icon (it's the primary target platform)
@@ -771,6 +791,50 @@ if (!gotTheLock) {
     } catch (error) {
       log.error('Error loading saved client name:', error);
       console.error('Error loading saved client name:', error);
+    }
+  });
+
+  // Handle set auto update setting
+  ipcMain.on('set-auto-update', (event, enabled) => {
+    log.info(`Auto update setting changed: ${enabled}`);
+    console.log(`Auto update setting changed: ${enabled}`);
+    
+    // Save the setting to electron-store
+    store.set('autoUpdateEnabled', enabled);
+    
+    // Update autoUpdater settings
+    if (enabled) {
+      autoUpdater.autoDownload = true;
+      autoUpdater.autoInstallOnAppQuit = true;
+      log.info('Auto update enabled - updates will be downloaded and installed automatically');
+    } else {
+      autoUpdater.autoDownload = false;
+      autoUpdater.autoInstallOnAppQuit = false;
+      log.info('Auto update disabled - updates will require manual intervention');
+    }
+  });
+
+  // Handle get auto update setting request
+  ipcMain.on('get-auto-update-setting', (event) => {
+    try {
+      const enabled = store.get('autoUpdateEnabled', false); // Default to false
+      log.info(`Loaded saved auto update setting: ${enabled}`);
+      console.log(`Loaded saved auto update setting: ${enabled}`);
+      event.sender.send('auto-update-setting-loaded', enabled);
+      
+      // Apply the setting to autoUpdater
+      if (enabled) {
+        autoUpdater.autoDownload = true;
+        autoUpdater.autoInstallOnAppQuit = true;
+      } else {
+        autoUpdater.autoDownload = false;
+        autoUpdater.autoInstallOnAppQuit = false;
+      }
+    } catch (error) {
+      log.error('Error loading saved auto update setting:', error);
+      console.error('Error loading saved auto update setting:', error);
+      // Send default value (false) if there's an error
+      event.sender.send('auto-update-setting-loaded', false);
     }
   });
 

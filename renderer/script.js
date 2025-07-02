@@ -5,6 +5,7 @@ const versionText = document.getElementById('version-text');
 const configInput = document.getElementById('config-input');
 const saveBtn = document.getElementById('save-btn');
 const updateBtn = document.getElementById('restart-btn'); // Actually the update button
+const toggleInput = document.getElementById('checkbox'); // Auto update toggle
 
 // Update button state management
 let updateButtonState = {
@@ -32,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.api && typeof window.api.send === 'function') {
     // Request the saved client name from main process
     window.api.send('get-client-name');
+    // Request the saved auto update setting from main process
+    window.api.send('get-auto-update-setting');
   }
   
   // Set computer name directly
@@ -68,6 +71,14 @@ if (window.api && typeof window.api.receive === 'function') {
     if (clientName && configInput) {
       configInput.value = clientName;
       console.log(`Loaded saved client name: ${clientName}`);
+    }
+  });
+  
+  // Listen for saved auto update setting from main process
+  window.api.receive('auto-update-setting-loaded', (enabled) => {
+    if (toggleInput) {
+      toggleInput.checked = enabled;
+      console.log(`Loaded saved auto update setting: ${enabled}`);
     }
   });
 }
@@ -115,6 +126,26 @@ saveBtn.addEventListener('click', () => {
   } else {
     console.warn('API not available for save');
     alert('Unable to save client name');
+  }
+});
+
+// Auto update toggle functionality
+toggleInput.addEventListener('change', (e) => {
+  const enabled = e.target.checked;
+  console.log('Auto update setting changed:', enabled);
+  
+  if (window.api && typeof window.api.send === 'function') {
+    // Send the auto update setting to the main process
+    window.api.send('set-auto-update', enabled);
+    
+    // Show feedback
+    if (enabled) {
+      console.log('Auto update enabled');
+    } else {
+      console.log('Auto update disabled');
+    }
+  } else {
+    console.warn('API not available for auto update setting');
   }
 });
 
