@@ -28,16 +28,14 @@ autoUpdater.autoInstallOnAppQuit = false; // We'll control this manually
 autoUpdater.allowDowngrade = false;
 autoUpdater.allowPrerelease = false;
 
-// Configure silent installation for Windows
+// Configure silent installation for Windows auto-updates only
+// Manual updates will use the default NSIS configuration from package.json
 if (process.platform === 'win32') {
+  // For auto-updates, we'll override the installer behavior to be silent
+  // Manual updates will use the normal NSIS configuration
   autoUpdater.installerPath = null; // Use default installer
-  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART']; // Silent installation
-  log.info('Configured silent Windows installer with /S /NOCANCEL /NORESTART');
-}
-if (process.platform === 'win32') {
-  autoUpdater.installerPath = null; // Use default installer
-  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART']; // Silent installation
-  log.info('Configured silent Windows installer with /S /NOCANCEL /NORESTART');
+  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS']; // Silent installation
+  log.info('Configured silent Windows installer args for auto-updates: /S /NOCANCEL /NORESTART /CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS');
 }
 
 // Configure GitHub repository for updates with more explicit settings
@@ -379,10 +377,15 @@ if (!gotTheLock) {
         // Don't send any status to UI - keep it completely silent
         // Install immediately without any UI notifications
         if (process.platform === 'win32') {
+          // Ensure silent arguments are set for auto-updates
+          autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS'];
+          log.info('Auto update: restored silent installer arguments');
           // Use silent installation for Windows auto-updates
           autoUpdater.quitAndInstall(false, true); // isSilent=true, isForceRunAfter=false
+          log.info('Auto update: calling quitAndInstall with silent mode for Windows');
         } else {
           autoUpdater.quitAndInstall();
+          log.info('Auto update: calling quitAndInstall for non-Windows platform');
         }
       } else {
         // Manual update - notify the UI and turn button red
@@ -802,6 +805,11 @@ if (!gotTheLock) {
   ipcMain.on('install-update', () => {
     log.info('Manual update install requested');
     // Manual updates should show normal installer dialog for user control
+    // Clear any silent arguments for manual updates
+    if (process.platform === 'win32') {
+      autoUpdater.installerArgs = []; // Remove silent args for manual updates
+      log.info('Manual update: cleared silent installer arguments');
+    }
     autoUpdater.quitAndInstall();
   });
 
