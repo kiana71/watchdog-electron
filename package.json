@@ -1,6 +1,6 @@
 {
   "name": "digital-signage-watchdog-app",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "description": "Digital Signage Watchdog - Desktop monitoring application",
   "main": "main.js",
   "scripts": {

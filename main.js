@@ -28,6 +28,18 @@ autoUpdater.autoInstallOnAppQuit = false; // We'll control this manually
 autoUpdater.allowDowngrade = false;
 autoUpdater.allowPrerelease = false;
 
+// Configure silent installation for Windows
+if (process.platform === 'win32') {
+  autoUpdater.installerPath = null; // Use default installer
+  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART']; // Silent installation
+  log.info('Configured silent Windows installer with /S /NOCANCEL /NORESTART');
+}
+if (process.platform === 'win32') {
+  autoUpdater.installerPath = null; // Use default installer
+  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART']; // Silent installation
+  log.info('Configured silent Windows installer with /S /NOCANCEL /NORESTART');
+}
+
 // Configure GitHub repository for updates with more explicit settings
 autoUpdater.setFeedURL({
   provider: 'github',
@@ -366,7 +378,12 @@ if (!gotTheLock) {
         
         // Don't send any status to UI - keep it completely silent
         // Install immediately without any UI notifications
-        autoUpdater.quitAndInstall();
+        if (process.platform === 'win32') {
+          // Use silent installation for Windows auto-updates
+          autoUpdater.quitAndInstall(false, true); // isSilent=true, isForceRunAfter=false
+        } else {
+          autoUpdater.quitAndInstall();
+        }
       } else {
         // Manual update - notify the UI and turn button red
         if (mainWindow && mainWindow.webContents) {
@@ -784,6 +801,7 @@ if (!gotTheLock) {
   // Handle update install
   ipcMain.on('install-update', () => {
     log.info('Manual update install requested');
+    // Manual updates should show normal installer dialog for user control
     autoUpdater.quitAndInstall();
   });
 
