@@ -22,6 +22,12 @@ log.info('Application starting...');
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
+// Disable all native dialogs for silent updates
+autoUpdater.autoDownload = false; // We'll control this manually
+autoUpdater.autoInstallOnAppQuit = false; // We'll control this manually
+autoUpdater.allowDowngrade = false;
+autoUpdater.allowPrerelease = false;
+
 // Configure GitHub repository for updates with more explicit settings
 autoUpdater.setFeedURL({
   provider: 'github',
@@ -60,13 +66,8 @@ if (!gotTheLock) {
     }
   });
 
-  //Initialize settings store with explicit configuration
-  const store = new Store({
-    name: 'config', // Use consistent filename
-    defaults: {
-      autoUpdateEnabled: false
-    }
-  });
+  //Initialize settings store
+  const store = new Store();
 
   // Configure auto-launch
   const autoLauncher = new AutoLaunch({
@@ -86,7 +87,6 @@ if (!gotTheLock) {
 
   // Apply auto-update settings on startup
   const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
-  log.info(`Auto update setting on startup: ${autoUpdateEnabled}`);
   if (autoUpdateEnabled) {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
@@ -281,19 +281,38 @@ if (!gotTheLock) {
     autoUpdater.on('update-available', (info) => {
       log.info('Update available:', info);
       console.log('Update available:', info);
-      if (mainWindow && mainWindow.webContents) {
-        mainWindow.webContents.send('update-status', {
-          status: 'available',
-          version: info.version
-        });
+      
+      // Check if auto update is enabled
+      const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+      
+      if (autoUpdateEnabled) {
+        // Auto update mode: download immediately without any UI notifications
+        log.info('Auto update enabled - downloading update silently');
+        console.log('Auto update enabled - downloading update silently');
+        
+        // Don't send any status to UI - keep it completely silent
+        // Just start downloading immediately
+        autoUpdater.downloadUpdate();
+      } else {
+        // Manual mode: notify the UI and let user decide
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.send('update-status', {
+            status: 'available',
+            version: info.version
+          });
+        }
       }
-      // Removed notification for digital signage - button color change will indicate update availability
     });
 
     autoUpdater.on('update-not-available', (info) => {
       log.info('Update not available:', info);
       console.log('Update not available:', info);
-      if (mainWindow) {
+      
+      // Check if auto update is enabled
+      const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+      
+      if (!autoUpdateEnabled && mainWindow) {
+        // Only send status to UI in manual mode
         mainWindow.webContents.send('update-status', {
           status: 'not-available',
           message: 'You have the latest version'
@@ -304,7 +323,12 @@ if (!gotTheLock) {
     autoUpdater.on('error', (err) => {
       log.error('Auto-updater error:', err);
       console.error('Auto-updater error:', err);
-      if (mainWindow) {
+      
+      // Check if auto update is enabled
+      const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+      
+      if (!autoUpdateEnabled && mainWindow) {
+        // Only send error to UI in manual mode
         mainWindow.webContents.send('update-status', {
           status: 'error',
           error: err.message
@@ -315,7 +339,12 @@ if (!gotTheLock) {
     autoUpdater.on('download-progress', (progressObj) => {
       log.info('Download progress:', progressObj);
       console.log('Download progress:', progressObj);
-      if (mainWindow) {
+      
+      // Check if auto update is enabled
+      const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
+      
+      if (!autoUpdateEnabled && mainWindow) {
+        // Only send progress to UI in manual mode
         mainWindow.webContents.send('update-status', {
           status: 'downloading',
           progress: progressObj.percent
@@ -329,19 +358,15 @@ if (!gotTheLock) {
       
       // Check if auto update is enabled
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
-      log.info(`Auto update setting when update downloaded: ${autoUpdateEnabled}`);
       
       if (autoUpdateEnabled) {
-        // Auto install the update
-        log.info('Auto update is enabled - installing update automatically');
-        console.log('Auto update is enabled - installing update automatically');
+        // Auto install the update immediately without any delay or user interaction
+        log.info('Auto update is enabled - installing update automatically and silently');
+        console.log('Auto update is enabled - installing update automatically and silently');
         
-        // Set quitting flag to prevent window close prevention
-        isQuitting = true;
-        
-        setTimeout(() => {
-          autoUpdater.quitAndInstall(false, true);
-        }, 2000); // Small delay to allow user to see the update was found
+        // Don't send any status to UI - keep it completely silent
+        // Install immediately without any UI notifications
+        autoUpdater.quitAndInstall();
       } else {
         // Manual update - notify the UI and turn button red
         if (mainWindow && mainWindow.webContents) {
@@ -662,11 +687,20 @@ if (!gotTheLock) {
     // Check for updates automatically on startup (but delay it a bit)
     setTimeout(() => {
       log.info('Checking for updates on startup...');
-      // Always check for updates on startup to show button state
-      // The auto-update setting will control whether updates are auto-installed
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
       log.info(`Auto update setting: ${autoUpdateEnabled} - checking for updates on startup`);
-      autoUpdater.checkForUpdates();
+      
+      if (autoUpdateEnabled) {
+        // Auto update mode: check silently without triggering UI alerts
+        log.info('Auto update enabled - checking for updates silently');
+        autoUpdater.checkForUpdates().catch((error) => {
+          log.error('Error during silent update check:', error);
+        });
+      } else {
+        // Manual mode: check for updates to show button state
+        log.info('Manual mode - checking for updates to show button state');
+        autoUpdater.checkForUpdates();
+      }
     }, 10000); // Check after 10 seconds to let app fully load
     
     // On Windows, create the tray icon (it's the primary target platform)

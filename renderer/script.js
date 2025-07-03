@@ -189,6 +189,9 @@ if (window.api && typeof window.api.receive === 'function') {
     // Get the SVG inside the update button
     const updateBtnSvg = updateBtn.querySelector('svg');
     
+    // Check if auto update is enabled to determine behavior
+    const autoUpdateEnabled = toggleInput ? toggleInput.checked : false;
+    
     switch (statusData.status) {
       case 'checking':
         updateBtn.title = 'Checking for updates...';
@@ -199,12 +202,19 @@ if (window.api && typeof window.api.receive === 'function') {
       case 'available':
         // Mark that an update was detected
         updateButtonState.hasUpdateDetected = true;
-        // Start download automatically when update is available
-        window.api.send('download-update');
-        updateBtn.title = 'Downloading update...';
-        updateBtn.style.opacity = '0.8';
-        if (updateBtnSvg) updateBtnSvg.style.color = updateButtonState.normalColor;
-        updateButtonState.isInstalling = true;
+        
+        if (autoUpdateEnabled) {
+          // Auto update mode: download silently without changing button appearance
+          window.api.send('download-update');
+          console.log('Auto update: downloading update silently');
+        } else {
+          // Manual mode: show download progress on button
+          window.api.send('download-update');
+          updateBtn.title = 'Downloading update...';
+          updateBtn.style.opacity = '0.8';
+          if (updateBtnSvg) updateBtnSvg.style.color = updateButtonState.normalColor;
+          updateButtonState.isInstalling = true;
+        }
         break;
       case 'not-available':
         // Only reset to gray if no update was previously detected
@@ -230,12 +240,24 @@ if (window.api && typeof window.api.receive === 'function') {
         }
         break;
       case 'downloading':
-        updateBtn.title = `Downloading... ${Math.round(statusData.progress || 0)}%`;
-        updateBtn.style.opacity = '0.8';
-        if (updateBtnSvg) updateBtnSvg.style.color = updateButtonState.normalColor;
-        updateButtonState.isInstalling = true;
+        if (autoUpdateEnabled) {
+          // Auto update mode: download silently without changing button appearance
+          console.log(`Auto update: downloading progress ${Math.round(statusData.progress || 0)}%`);
+        } else {
+          // Manual mode: show download progress on button
+          updateBtn.title = `Downloading... ${Math.round(statusData.progress || 0)}%`;
+          updateBtn.style.opacity = '0.8';
+          if (updateBtnSvg) updateBtnSvg.style.color = updateButtonState.normalColor;
+          updateButtonState.isInstalling = true;
+        }
+        break;
+      case 'auto-installing':
+        // Auto update mode: installing silently - no UI changes needed
+        console.log('Auto update: installing update silently');
         break;
       case 'downloaded':
+        // Always show update ready state for manual button, regardless of auto-update setting
+        // This ensures the manual button always turns red when update is ready
         updateBtn.title = 'Update is ready';
         updateBtn.style.opacity = '1';
         if (updateBtnSvg) {
@@ -244,57 +266,76 @@ if (window.api && typeof window.api.receive === 'function') {
         }
         updateButtonState.isUpdateReady = true;
         updateButtonState.isInstalling = false;
+        
+        // Log auto-update status for debugging
+        if (autoUpdateEnabled) {
+          console.log('Auto update: update downloaded, will be installed automatically');
+        } else {
+          console.log('Manual mode: update downloaded, waiting for user confirmation');
+        }
         break;
       case 'error':
-        updateBtn.title = `Error: ${statusData.error}`;
-        updateBtn.style.opacity = '1';
-        // Only reset to gray if no update was previously detected
-        if (!updateButtonState.hasUpdateDetected) {
-          if (updateBtnSvg) {
-            updateBtnSvg.style.color = updateButtonState.normalColor;
-            updateBtnSvg.classList.remove('update-ready');
-          }
-          updateButtonState.isInstalling = false;
-          updateButtonState.isUpdateReady = false;
-          console.error('Update error:', statusData.error);
-          // Reset color after 5 seconds
-          setTimeout(() => {
+        if (autoUpdateEnabled) {
+          // Auto update mode: log error silently, no UI changes
+          console.error('Auto update error:', statusData.error);
+        } else {
+          // Manual mode: show error on button
+          updateBtn.title = `Error: ${statusData.error}`;
+          updateBtn.style.opacity = '1';
+          // Only reset to gray if no update was previously detected
+          if (!updateButtonState.hasUpdateDetected) {
             if (updateBtnSvg) {
               updateBtnSvg.style.color = updateButtonState.normalColor;
               updateBtnSvg.classList.remove('update-ready');
             }
-          }, 5000);
-        } else {
-          // If update was previously detected, keep the button red and ready
-          if (updateBtnSvg) {
-            updateBtnSvg.style.color = '#ef4444'; // Red
-            updateBtnSvg.classList.add('update-ready');
+            updateButtonState.isInstalling = false;
+            updateButtonState.isUpdateReady = false;
+            console.error('Update error:', statusData.error);
+            // Reset color after 5 seconds
+            setTimeout(() => {
+              if (updateBtnSvg) {
+                updateBtnSvg.style.color = updateButtonState.normalColor;
+                updateBtnSvg.classList.remove('update-ready');
+              }
+            }, 5000);
+          } else {
+            // If update was previously detected, keep the button red and ready
+            if (updateBtnSvg) {
+              updateBtnSvg.style.color = '#ef4444'; // Red
+              updateBtnSvg.classList.add('update-ready');
+            }
+            updateButtonState.isUpdateReady = true;
+            updateButtonState.isInstalling = false;
           }
-          updateButtonState.isUpdateReady = true;
-          updateButtonState.isInstalling = false;
         }
         break;
       default:
-        // Only reset to gray if no update was previously detected
-        if (!updateButtonState.hasUpdateDetected) {
-          updateBtn.title = 'Check for updates';
-          updateBtn.style.opacity = '1';
-          if (updateBtnSvg) {
-            updateBtnSvg.style.color = updateButtonState.normalColor;
-            updateBtnSvg.classList.remove('update-ready');
-          }
-          updateButtonState.isInstalling = false;
-          updateButtonState.isUpdateReady = false;
+        if (autoUpdateEnabled) {
+          // Auto update mode: no UI changes for unknown status
+          console.log('Auto update: unknown status received:', statusData.status);
         } else {
-          // If update was previously detected, keep the button red and ready
-          updateBtn.title = 'Update is ready';
-          updateBtn.style.opacity = '1';
-          if (updateBtnSvg) {
-            updateBtnSvg.style.color = '#ef4444'; // Red
-            updateBtnSvg.classList.add('update-ready');
+          // Manual mode: handle unknown status
+          // Only reset to gray if no update was previously detected
+          if (!updateButtonState.hasUpdateDetected) {
+            updateBtn.title = 'Check for updates';
+            updateBtn.style.opacity = '1';
+            if (updateBtnSvg) {
+              updateBtnSvg.style.color = updateButtonState.normalColor;
+              updateBtnSvg.classList.remove('update-ready');
+            }
+            updateButtonState.isInstalling = false;
+            updateButtonState.isUpdateReady = false;
+          } else {
+            // If update was previously detected, keep the button red and ready
+            updateBtn.title = 'Update is ready';
+            updateBtn.style.opacity = '1';
+            if (updateBtnSvg) {
+              updateBtnSvg.style.color = '#ef4444'; // Red
+              updateBtnSvg.classList.add('update-ready');
+            }
+            updateButtonState.isUpdateReady = true;
+            updateButtonState.isInstalling = false;
           }
-          updateButtonState.isUpdateReady = true;
-          updateButtonState.isInstalling = false;
         }
     }
   });
