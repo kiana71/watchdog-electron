@@ -1,6 +1,6 @@
 {
   "name": "digital-signage-watchdog-app",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "description": "Digital Signage Watchdog - Desktop monitoring application",
   "main": "main.js",
   "scripts": {
@@ -82,11 +82,11 @@
       ]
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "runAfterFinish": true,
-      "perMachine": false,
+      "perMachine": true,
       "deleteAppDataOnUninstall": false
     }
   },

@@ -804,11 +804,12 @@ if (!gotTheLock) {
   // Handle update install
   ipcMain.on('install-update', () => {
     log.info('Manual update install requested');
-    // Manual updates should show normal installer dialog for user control
-    // Clear any silent arguments for manual updates
+    // For manual updates, we'll use the same silent installation
+    // since oneClick is now true in NSIS config
+    // The user will see the update process but no dialogs
     if (process.platform === 'win32') {
-      autoUpdater.installerArgs = []; // Remove silent args for manual updates
-      log.info('Manual update: cleared silent installer arguments');
+      autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS'];
+      log.info('Manual update: using silent installer arguments');
     }
     autoUpdater.quitAndInstall();
   });
