@@ -32,12 +32,10 @@ autoUpdater.allowDowngrade = false;
 autoUpdater.allowPrerelease = false;
 
 // Configure silent installation for Windows auto-updates
-// Note: UAC prompts cannot be bypassed for program-initiated installs
-// This is a Windows security feature and is working as intended
 if (process.platform === 'win32') {
   autoUpdater.installerPath = null; // Use default installer
-  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS', '/NOICONS', '/SP-', '/SILENT', '/SUPPRESSMSGBOXES'];
-  log.info('Configured silent Windows installer args for auto-updates (UAC prompt will still appear as required by Windows security)');
+  autoUpdater.installerArgs = ['/S']; // Basic silent installation
+  log.info('Configured basic silent Windows installer args for auto-updates');
 }
 
 // Configure GitHub repository for updates with more explicit settings
@@ -372,23 +370,13 @@ if (!gotTheLock) {
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
       
       if (autoUpdateEnabled) {
-        // Auto install the update immediately without any delay or user interaction
-        log.info('Auto update is enabled - installing update automatically and silently');
-        console.log('Auto update is enabled - installing update automatically and silently');
+        // Auto install the update immediately
+        log.info('Auto update is enabled - installing update automatically');
+        console.log('Auto update is enabled - installing update automatically');
         
-        // Don't send any status to UI - keep it completely silent
         // Install immediately without any UI notifications
-        if (process.platform === 'win32') {
-          // Ensure enhanced silent arguments are set for auto-updates
-          autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS', '/NOICONS', '/SP-', '/SILENT', '/SUPPRESSMSGBOXES'];
-          log.info('Auto update: restored enhanced silent installer arguments');
-          // Use silent installation for Windows auto-updates with startup args
-          autoUpdater.quitAndInstall(false, true, '--hidden'); // isSilent=true, isForceRunAfter=false, startupArgs
-          log.info('Auto update: calling quitAndInstall with silent mode and hidden startup for Windows');
-        } else {
-          autoUpdater.quitAndInstall(false, true, '--hidden');
-          log.info('Auto update: calling quitAndInstall with hidden startup for non-Windows platform');
-        }
+        autoUpdater.quitAndInstall(false, true, '--hidden');
+        log.info('Auto update: calling quitAndInstall with hidden startup');
       } else {
         // Manual update - notify the UI and turn button red
         if (mainWindow && mainWindow.webContents) {
@@ -806,13 +794,6 @@ if (!gotTheLock) {
   // Handle update install
   ipcMain.on('install-update', () => {
     log.info('Manual update install requested');
-    // For manual updates, we'll use the same silent installation
-    // since oneClick is now true in NSIS config
-    // The user will see the update process but no dialogs
-    if (process.platform === 'win32') {
-      autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS'];
-      log.info('Manual update: using silent installer arguments');
-    }
     // Pass --hidden argument to ensure app starts minimized after update
     autoUpdater.quitAndInstall(false, true, '--hidden');
     log.info('Manual update: calling quitAndInstall with hidden startup');

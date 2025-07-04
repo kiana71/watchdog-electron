@@ -127,7 +127,7 @@ saveBtn.addEventListener('click', () => {
     console.warn('API not available for save');
     alert('Unable to save client name');
   }
-});
+}); 
 
 // Auto update toggle functionality
 toggleInput.addEventListener('change', (e) => {
