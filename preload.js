@@ -21,13 +21,13 @@ const computerName = os.hostname();
 contextBridge.exposeInMainWorld('api', {
   send: (channel, data) => {
     // whitelist channels
-    const validChannels = ['app-quit', 'app-minimize', 'restart-service', 'save-client-name', 'get-client-name', 'check-for-updates', 'download-update', 'install-update'];
+    const validChannels = ['app-quit', 'app-minimize', 'restart-service', 'save-client-name', 'get-client-name', 'check-for-updates', 'download-update', 'install-update', 'set-auto-update', 'get-auto-update-setting'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }
   },
   receive: (channel, func) => {
-    const validChannels = ['client-log', 'client-error', 'client-status', 'client-name-loaded', 'update-status'];
+    const validChannels = ['client-log', 'client-error', 'client-status', 'client-name-loaded', 'update-status', 'auto-update-setting-loaded'];
     if (validChannels.includes(channel)) {
       // Deliberately strip event as it includes `sender` 
       ipcRenderer.on(channel, (event, ...args) => func(...args));
