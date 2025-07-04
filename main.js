@@ -6,12 +6,15 @@ const log = require('electron-log');
 const Store = require('electron-store');
 const AutoLaunch = require('auto-launch');
 // Add remote module
+
+
 const remote = require('@electron/remote/main');
 // Add electron-updater for automatic updates
 const { autoUpdater } = require('electron-updater');
 const appInfo = {
   version: require('./package.json').version
 };
+
 const os = require('os');
 
 // Configure logging
@@ -22,20 +25,19 @@ log.info('Application starting...');
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
-// Disable all native dialogs for silent updates
+// Configure for smooth auto-updates (UAC will still appear, but we'll handle it gracefully)
 autoUpdater.autoDownload = false; // We'll control this manually
 autoUpdater.autoInstallOnAppQuit = false; // We'll control this manually
 autoUpdater.allowDowngrade = false;
 autoUpdater.allowPrerelease = false;
 
-// Configure silent installation for Windows auto-updates only
-// Manual updates will use the default NSIS configuration from package.json
+// Configure silent installation for Windows auto-updates
+// Note: UAC prompts cannot be bypassed for program-initiated installs
+// This is a Windows security feature and is working as intended
 if (process.platform === 'win32') {
-  // For auto-updates, we'll override the installer behavior to be silent
-  // Manual updates will use the normal NSIS configuration
   autoUpdater.installerPath = null; // Use default installer
-  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS']; // Silent installation
-  log.info('Configured silent Windows installer args for auto-updates: /S /NOCANCEL /NORESTART /CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS');
+  autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS', '/NOICONS', '/SP-', '/SILENT', '/SUPPRESSMSGBOXES'];
+  log.info('Configured silent Windows installer args for auto-updates (UAC prompt will still appear as required by Windows security)');
 }
 
 // Configure GitHub repository for updates with more explicit settings
@@ -377,15 +379,15 @@ if (!gotTheLock) {
         // Don't send any status to UI - keep it completely silent
         // Install immediately without any UI notifications
         if (process.platform === 'win32') {
-          // Ensure silent arguments are set for auto-updates
-          autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS'];
-          log.info('Auto update: restored silent installer arguments');
-          // Use silent installation for Windows auto-updates
-          autoUpdater.quitAndInstall(false, true); // isSilent=true, isForceRunAfter=false
-          log.info('Auto update: calling quitAndInstall with silent mode for Windows');
+          // Ensure enhanced silent arguments are set for auto-updates
+          autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS', '/NOICONS', '/SP-', '/SILENT', '/SUPPRESSMSGBOXES'];
+          log.info('Auto update: restored enhanced silent installer arguments');
+          // Use silent installation for Windows auto-updates with startup args
+          autoUpdater.quitAndInstall(false, true, '--hidden'); // isSilent=true, isForceRunAfter=false, startupArgs
+          log.info('Auto update: calling quitAndInstall with silent mode and hidden startup for Windows');
         } else {
-          autoUpdater.quitAndInstall();
-          log.info('Auto update: calling quitAndInstall for non-Windows platform');
+          autoUpdater.quitAndInstall(false, true, '--hidden');
+          log.info('Auto update: calling quitAndInstall with hidden startup for non-Windows platform');
         }
       } else {
         // Manual update - notify the UI and turn button red
@@ -811,7 +813,9 @@ if (!gotTheLock) {
       autoUpdater.installerArgs = ['/S', '/NOCANCEL', '/NORESTART', '/CLOSEAPPLICATIONS', '/FORCECLOSEAPPLICATIONS'];
       log.info('Manual update: using silent installer arguments');
     }
-    autoUpdater.quitAndInstall();
+    // Pass --hidden argument to ensure app starts minimized after update
+    autoUpdater.quitAndInstall(false, true, '--hidden');
+    log.info('Manual update: calling quitAndInstall with hidden startup');
   });
 
   // Handle save client name

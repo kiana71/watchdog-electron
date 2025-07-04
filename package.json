@@ -1,6 +1,6 @@
 {
   "name": "digital-signage-watchdog-app",
-  "version": "1.1.13",
+  "version": "1.1.14",
   "description": "Digital Signage Watchdog - Desktop monitoring application",
   "main": "main.js",
   "scripts": {
@@ -82,12 +82,14 @@
       ]
     },
     "nsis": {
-      "oneClick": true,
-      "allowToChangeInstallationDirectory": false,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "runAfterFinish": true,
-      "perMachine": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true,
+      "allowElevation": false, 
+      "perMachine": false
     }
   },
   "author": "Signcast Media Inc.",
