@@ -199,9 +199,7 @@ if (!gotTheLock) {
                          process.argv.includes('--startup') ||
                          process.argv.includes('--start-minimized') ||
                          app.getLoginItemSettings().wasOpenedAtLogin ||
-                         process.env.STARTUP_MODE === 'auto' ||
-                         // Check if launched from Windows startup folder or registry
-                         (process.platform === 'win32' && process.argv.length === 1);
+                         process.env.STARTUP_MODE === 'auto';
 
     console.log('Process arguments:', process.argv);
     console.log('Login item settings:', app.getLoginItemSettings());
@@ -218,11 +216,7 @@ if (!gotTheLock) {
                                 process.env.USER_LAUNCHED === 'true';
       
       // Default to hidden unless explicitly launched by user
-      const shouldShowWindow = !isAutoStarted && (hasUserInteraction || 
-                              // Only show if launched directly (not from startup)
-                              (!app.getLoginItemSettings().wasOpenedAtLogin && 
-                               !process.argv.includes('--startup') && 
-                               !process.argv.includes('--hidden')));
+      const shouldShowWindow = !isAutoStarted && hasUserInteraction;
       
       if (shouldShowWindow) {
         console.log('App manually started - showing window');
