@@ -187,8 +187,7 @@ class WatchdogClient {
   async getDetailedWindowsInfo() {
     try {
       console.log('=== GETTING DETAILED WINDOWS INFO ===');
-      const { exec } = require('child_process');
-      const util = require('util');
+      const util = await import('util');
       const execAsync = util.promisify(exec);
       
       // Get detailed Windows version information using PowerShell
@@ -218,8 +217,7 @@ class WatchdogClient {
       // Fallback: try simpler approach
       try {
         console.log('=== TRYING FALLBACK METHOD ===');
-        const { exec } = require('child_process');
-        const util = require('util');
+        const util = await import('util');
         const execAsync = util.promisify(exec);
         
         // Try simpler commands
