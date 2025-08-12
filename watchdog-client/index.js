@@ -370,7 +370,13 @@ class WatchdogClient {
   startHeartbeat() {
     this.heartbeatInterval = setInterval(() => {
       if (this.isConnected) {
-        this.send({ type: 'heartbeat' });
+        // Include current uptime in heartbeat to keep it updated
+        this.send({ 
+          type: 'heartbeat',
+          data: {
+            uptimeHours: os.uptime() / 3600
+          }
+        });
       }
     }, HEARTBEAT_INTERVAL);
   }
