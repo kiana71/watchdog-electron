@@ -186,22 +186,27 @@ class WatchdogClient {
 
   async getDetailedWindowsInfo() {
     try {
-      const { exec } = require('child_process');
-      const util = require('util');
-      const execAsync = util.promisify(exec);
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
       
       // Get detailed Windows version information using PowerShell
       const command = `powershell -Command "Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, WindowsBuildLabEx, OsArchitecture | ConvertTo-Json"`;
       
+      console.log('Getting detailed Windows info...');
       const { stdout } = await execAsync(command);
+      console.log('Windows info retrieved:', stdout);
+      
       const windowsInfo = JSON.parse(stdout);
       
-      return {
+      const result = {
         productName: windowsInfo.WindowsProductName,
         version: windowsInfo.WindowsVersion,
         buildLab: windowsInfo.WindowsBuildLabEx,
         architecture: windowsInfo.OsArchitecture
       };
+      
+      console.log('Detailed Windows info result:', result);
+      return result;
     } catch (error) {
       console.error('Error getting detailed Windows info:', error);
       return null;
@@ -339,7 +344,9 @@ class WatchdogClient {
     // Get detailed Windows info if on Windows
     let detailedOsInfo = null;
     if (os.platform() === 'win32') {
+      console.log('Platform is Windows, getting detailed OS info...');
       detailedOsInfo = await this.getDetailedWindowsInfo();
+      console.log('Detailed OS info retrieved:', detailedOsInfo);
     }
     
     const info = {
@@ -364,6 +371,7 @@ class WatchdogClient {
         detailedOsInfo: detailedOsInfo
       }
     };
+    console.log('Sending client info with detailedOsInfo:', info.data.detailedOsInfo);
     this.send(info);
   }
 
