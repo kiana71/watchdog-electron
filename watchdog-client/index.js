@@ -185,84 +185,26 @@ class WatchdogClient {
   }
 
   async getDetailedWindowsInfo() {
-    // If simulating Windows on non-Windows platform, return mock data
-    if (SIMULATE_WINDOWS && os.platform() !== 'win32') {
-      console.log('=== SIMULATING WINDOWS INFO ===');
-      const mockResult = {
-        productName: 'Windows 10 Pro (Simulated)',
-        version: '10.0.19044',
-        buildLab: '19044.2846.amd64fre.21h2_release.210604-1705',
-        architecture: 'x64'
-      };
-      console.log('Returning simulated Windows info:', mockResult);
-      return mockResult;
-    }
-    
     try {
-      console.log('=== GETTING DETAILED WINDOWS INFO ===');
-      const util = await import('util');
+      const { exec } = require('child_process');
+      const util = require('util');
       const execAsync = util.promisify(exec);
       
       // Get detailed Windows version information using PowerShell
       const command = `powershell -Command "Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, WindowsBuildLabEx, OsArchitecture | ConvertTo-Json"`;
-      console.log('Executing PowerShell command:', command);
       
-      const { stdout, stderr } = await execAsync(command);
-      console.log('PowerShell stdout:', stdout);
-      if (stderr) console.log('PowerShell stderr:', stderr);
-      
+      const { stdout } = await execAsync(command);
       const windowsInfo = JSON.parse(stdout);
-      console.log('Parsed Windows info:', windowsInfo);
       
-      const result = {
+      return {
         productName: windowsInfo.WindowsProductName,
         version: windowsInfo.WindowsVersion,
         buildLab: windowsInfo.WindowsBuildLabEx,
         architecture: windowsInfo.OsArchitecture
       };
-      
-      console.log('Returning detailed Windows info:', result);
-      return result;
     } catch (error) {
       console.error('Error getting detailed Windows info:', error);
-      console.error('Error stack:', error.stack);
-      
-      // Fallback: try simpler approach
-      try {
-        console.log('=== TRYING FALLBACK METHOD ===');
-        const util = await import('util');
-        const execAsync = util.promisify(exec);
-        
-        // Try simpler commands
-        const verCommand = 'ver';
-        const { stdout: verOutput } = await execAsync(verCommand);
-        console.log('Ver command output:', verOutput);
-        
-        // Extract version from ver command output
-        const versionMatch = verOutput.match(/(\d+\.\d+\.\d+)/);
-        const version = versionMatch ? versionMatch[1] : 'Unknown';
-        
-        // Try to get edition info from systeminfo (might be slower but more reliable)
-        const sysInfoCommand = 'systeminfo | findstr /B /C:"OS Name"';
-        const { stdout: sysOutput } = await execAsync(sysInfoCommand);
-        console.log('Systeminfo output:', sysOutput);
-        
-        const osNameMatch = sysOutput.match(/OS Name:\s*(.+)/);
-        const productName = osNameMatch ? osNameMatch[1].trim() : this.osName;
-        
-        const fallbackResult = {
-          productName: productName,
-          version: version,
-          buildLab: 'Not available',
-          architecture: os.arch()
-        };
-        
-        console.log('Returning fallback Windows info:', fallbackResult);
-        return fallbackResult;
-      } catch (fallbackError) {
-        console.error('Fallback method also failed:', fallbackError);
-        return null;
-      }
+      return null;
     }
   }
 
@@ -394,9 +336,9 @@ class WatchdogClient {
     // Refresh system information before sending
     await this.fetchAdditionalSystemInfo();
     
-    // Get detailed Windows info if on Windows or simulating Windows
+    // Get detailed Windows info if on Windows
     let detailedOsInfo = null;
-    if (os.platform() === 'win32' || SIMULATE_WINDOWS) {
+    if (os.platform() === 'win32') {
       detailedOsInfo = await this.getDetailedWindowsInfo();
     }
     
