@@ -185,6 +185,19 @@ class WatchdogClient {
   }
 
   async getDetailedWindowsInfo() {
+    // If simulating Windows on non-Windows platform, return mock data
+    if (SIMULATE_WINDOWS && os.platform() !== 'win32') {
+      console.log('=== SIMULATING WINDOWS INFO ===');
+      const mockResult = {
+        productName: 'Windows 10 Pro (Simulated)',
+        version: '10.0.19044',
+        buildLab: '19044.2846.amd64fre.21h2_release.210604-1705',
+        architecture: 'x64'
+      };
+      console.log('Returning simulated Windows info:', mockResult);
+      return mockResult;
+    }
+    
     try {
       console.log('=== GETTING DETAILED WINDOWS INFO ===');
       const util = await import('util');
@@ -381,9 +394,9 @@ class WatchdogClient {
     // Refresh system information before sending
     await this.fetchAdditionalSystemInfo();
     
-    // Get detailed Windows info if on Windows
+    // Get detailed Windows info if on Windows or simulating Windows
     let detailedOsInfo = null;
-    if (os.platform() === 'win32') {
+    if (os.platform() === 'win32' || SIMULATE_WINDOWS) {
       detailedOsInfo = await this.getDetailedWindowsInfo();
     }
     
