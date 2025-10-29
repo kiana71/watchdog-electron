@@ -51,6 +51,8 @@ class WatchdogClient {
     this.version = packageVersion; // Use the version from package.json
     this.isConnected = false;
     this.reconnectAttempts = 0;
+    this.reconnectTimeout = null; // Track reconnection timeout for cleanup
+    this.wasOnline = true; // Track previous network state for internet monitoring
     
     // Initialize other properties that will be populated asynchronously
     this.publicIpAddress = null;
@@ -65,6 +67,9 @@ class WatchdogClient {
     
     // Set up stdin handling for receiving messages from main process
     this.setupStdinHandling();
+    
+    // Set up network monitoring for internet connectivity changes
+    this.setupNetworkMonitoring();
   }
 
   getIPAddress() {
@@ -301,9 +306,16 @@ class WatchdogClient {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.on('open', () => {
-        console.log('Connected to server');
+        console.log('✅ Connected to server');
         this.isConnected = true;
         this.reconnectAttempts = 0;
+        
+        // Clear any pending reconnect timeout
+        if (this.reconnectTimeout) {
+          clearTimeout(this.reconnectTimeout);
+          this.reconnectTimeout = null;
+        }
+        
         this.sendClientInfo();
         this.startHeartbeat();
       });
@@ -330,11 +342,19 @@ class WatchdogClient {
   }
 
   reconnect() {
-    if (this.reconnectAttempts < 5) {
-      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-      this.reconnectAttempts++;
-      setTimeout(() => this.connect(), delay);
+    // Clear any existing reconnect timeout to prevent duplicate reconnection attempts
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
     }
+    
+    // Infinite reconnection with exponential backoff capped at 30 seconds
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    this.reconnectAttempts++;
+    
+    console.log(`Reconnection attempt #${this.reconnectAttempts} in ${delay / 1000} seconds...`);
+    
+    // Store timeout reference so it can be cleared if connection succeeds
+    this.reconnectTimeout = setTimeout(() => this.connect(), delay);
   }
 
   async sendClientInfo() {
@@ -661,6 +681,51 @@ class WatchdogClient {
       console.error('Error saving client name:', error);
       console.error('Error stack:', error.stack);
     }
+  }
+
+  // Check if we have internet connectivity by reaching a reliable endpoint
+  async checkInternetConnectivity() {
+    try {
+      // Try to reach Google DNS resolver API (reliable and fast)
+      const response = await axios.get('https://dns.google/resolve?name=google.com&type=A', {
+        timeout: 5000
+      });
+      return response.status === 200;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Monitor network connectivity changes and trigger immediate reconnection when internet returns
+  setupNetworkMonitoring() {
+    // Check connectivity every 10 seconds
+    setInterval(async () => {
+      const isOnline = await this.checkInternetConnectivity();
+      
+      // If we just came back online and we're not connected to the server
+      if (isOnline && !this.wasOnline && !this.isConnected) {
+        console.log('🌐 Internet connectivity restored! Attempting immediate reconnection...');
+        
+        // Reset reconnection attempts to start fresh with shorter delays
+        this.reconnectAttempts = 0;
+        
+        // Clear any pending reconnection timeout
+        if (this.reconnectTimeout) {
+          clearTimeout(this.reconnectTimeout);
+        }
+        
+        // Try to connect immediately
+        this.connect();
+      }
+      
+      // Update the previous state for next comparison
+      this.wasOnline = isOnline;
+      
+      // Log connectivity status periodically (every minute)
+      if (this.reconnectAttempts % 6 === 0) {
+        console.log(`Network status: ${isOnline ? 'Online' : 'Offline'}, WebSocket: ${this.isConnected ? 'Connected' : 'Disconnected'}`);
+      }
+    }, 10000); // Check every 10 seconds
   }
 }
 
