@@ -351,8 +351,6 @@ class WatchdogClient {
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
     this.reconnectAttempts++;
     
-    console.log(`Reconnection attempt #${this.reconnectAttempts} in ${delay / 1000} seconds...`);
-    
     // Store timeout reference so it can be cleared if connection succeeds
     this.reconnectTimeout = setTimeout(() => this.connect(), delay);
   }
@@ -720,11 +718,6 @@ class WatchdogClient {
       
       // Update the previous state for next comparison
       this.wasOnline = isOnline;
-      
-      // Log connectivity status periodically (every minute)
-      if (this.reconnectAttempts % 6 === 0) {
-        console.log(`Network status: ${isOnline ? 'Online' : 'Offline'}, WebSocket: ${this.isConnected ? 'Connected' : 'Disconnected'}`);
-      }
     }, 10000); // Check every 10 seconds
   }
 }
