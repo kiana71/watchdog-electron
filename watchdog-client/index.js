@@ -231,107 +231,73 @@ class WatchdogClient {
     }
 
     try {
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-      
-      // Get the current user's SID dynamically
-      let userSID = null;
-      try {
-        // Get current user's SID using PowerShell
-        const sidCommand = `powershell -Command "[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value"`;
-        const { stdout: sidStdout } = await execAsync(sidCommand);
-        userSID = sidStdout.trim();
-        console.log('Current user SID:', userSID);
-      } catch (sidError) {
-        console.log('Could not get user SID, trying alternative method...');
-        // Alternative: try to find the SID by querying HKEY_USERS
-        // This is less reliable but might work
-        try {
-          const listCommand = `reg query "HKEY_USERS"`;
-          const { stdout: listStdout } = await execAsync(listCommand);
-          // Look for SID patterns in the output
-          const sidMatch = listStdout.match(/S-1-5-21-\d+-\d+-\d+-\d+/);
-          if (sidMatch) {
-            userSID = sidMatch[0];
-            console.log('Found user SID from HKEY_USERS:', userSID);
-          }
-        } catch (listError) {
-          console.log('Could not determine user SID');
-        }
-      }
-
       const result = {
         version: null,
         screenKey: null,
         lastUpdated: null
       };
 
-      // Define possible registry paths to check
-      const registryPaths = [];
+      // Get the user's home directory and construct the INI file path
+      const userHomeDir = os.homedir();
+      const iniFilePath = path.join(userHomeDir, 'KioCast', 'settings.ini');
       
-      // 1. User-specific path (if SID is available)
-      if (userSID) {
-        registryPaths.push(`HKEY_USERS\\${userSID}\\SOFTWARE\\Signcast Kiocast`);
-      }
-      
-      // 2. Machine-wide path (for all users installation)
-      registryPaths.push('HKEY_LOCAL_MACHINE\\SOFTWARE\\Signcast Kiocast');
-      
-      // 3. Also try HKEY_CURRENT_USER as fallback
-      registryPaths.push('HKEY_CURRENT_USER\\SOFTWARE\\Signcast Kiocast');
+      console.log('Reading Kiocast info from:', iniFilePath);
 
-      // Helper function to read a registry value from a specific path
-      const readRegistryValueFromPath = async (registryPath, valueName) => {
-        try {
-          const command = `reg query "${registryPath}" /v "${valueName}"`;
-          const { stdout } = await execAsync(command);
+      // Check if the INI file exists
+      if (!fs.existsSync(iniFilePath)) {
+        console.log('Kiocast settings.ini file not found at:', iniFilePath);
+        return result;
+      }
+
+      // Read the INI file
+      const iniContent = fs.readFileSync(iniFilePath, 'utf8');
+      
+      // Parse INI file content
+      // INI format can be:
+      // Key=Value
+      // or
+      // [Section]
+      // Key=Value
+      
+      // Simple INI parser - handles both formats
+      const lines = iniContent.split('\n');
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Skip empty lines and comments
+        if (!trimmedLine || trimmedLine.startsWith(';') || trimmedLine.startsWith('#')) {
+          continue;
+        }
+        
+        // Skip section headers like [Section]
+        if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
+          continue;
+        }
+        
+        // Parse key=value pairs
+        const match = trimmedLine.match(/^([^=]+)=(.*)$/);
+        if (match) {
+          const key = match[1].trim();
+          const value = match[2].trim();
           
-          // Parse the registry output to extract the value
-          // Output format: "    Version    REG_SZ    2.0.0"
-          const match = stdout.match(new RegExp(`${valueName}\\s+REG_SZ\\s+(.+)`, 'i'));
-          if (match && match[1]) {
-            return match[1].trim();
-          }
-          return null;
-        } catch (error) {
-          // Value not found in this path
-          return null;
-        }
-      };
-
-      // Helper function to read a registry value, trying all paths
-      const readRegistryValue = async (valueName) => {
-        for (const registryPath of registryPaths) {
-          try {
-            const value = await readRegistryValueFromPath(registryPath, valueName);
-            if (value) {
-              console.log(`Found ${valueName} in ${registryPath}:`, value);
-              return value;
-            }
-          } catch (error) {
-            // Continue to next path
-            continue;
+          // Remove quotes if present
+          const cleanValue = value.replace(/^["']|["']$/g, '');
+          
+          // Match keys case-insensitively
+          if (key.toLowerCase() === 'version') {
+            result.version = cleanValue;
+          } else if (key.toLowerCase() === 'screenkey') {
+            result.screenKey = cleanValue;
+          } else if (key.toLowerCase() === 'lastupdated') {
+            result.lastUpdated = cleanValue;
           }
         }
-        return null;
-      };
-
-      console.log('Reading Kiocast info from registry (checking multiple locations)...');
-      
-      // Read all three values (will try all paths until found)
-      result.version = await readRegistryValue('Version');
-      result.screenKey = await readRegistryValue('ScreenKey');
-      result.lastUpdated = await readRegistryValue('LastUpdated');
-      
-      // If Version not found, try DisplayVersion as fallback
-      if (!result.version) {
-        result.version = await readRegistryValue('DisplayVersion');
       }
       
-      console.log('Kiocast info retrieved:', result);
+      console.log('Kiocast info retrieved from settings.ini:', result);
       return result;
     } catch (error) {
-      // Registry key might not exist if Kiocast is not installed
+      // INI file might not exist or be unreadable if Kiocast is not installed
       console.log('Kiocast info not available:', error.message);
       return { version: null, screenKey: null, lastUpdated: null };
     }
