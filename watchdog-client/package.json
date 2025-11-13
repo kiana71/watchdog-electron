@@ -1,6 +1,6 @@
 {
   "name": "digital-signage-watchdog-client",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "description": "Digital Signage Watchdog Client - System monitoring and remote management client",
   "main": "index.js",
   "type": "module",
