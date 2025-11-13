@@ -285,6 +285,9 @@ if (!gotTheLock) {
     autoUpdater.on('update-available', (info) => {
       log.info('Update available:', info);
       console.log('Update available:', info);
+      console.log('Update info details:', JSON.stringify(info, null, 2));
+      console.log('Current version:', appInfo.version);
+      console.log('New version:', info.version);
       
       // Check if auto update is enabled
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
@@ -311,6 +314,8 @@ if (!gotTheLock) {
     autoUpdater.on('update-not-available', (info) => {
       log.info('Update not available:', info);
       console.log('Update not available:', info);
+      console.log('Current version:', appInfo.version);
+      console.log('Update info details:', JSON.stringify(info, null, 2));
       
       // Check if auto update is enabled
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
@@ -327,6 +332,12 @@ if (!gotTheLock) {
     autoUpdater.on('error', (err) => {
       log.error('Auto-updater error:', err);
       console.error('Auto-updater error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        stack: err.stack,
+        code: err.code,
+        errno: err.errno
+      });
       
       // Check if auto update is enabled
       const autoUpdateEnabled = store.get('autoUpdateEnabled', false);
@@ -754,12 +765,27 @@ if (!gotTheLock) {
     try {
       // Log current configuration
       log.info(`Current app version: ${appInfo.version}`);
-      log.info('Auto-updater feed URL:', autoUpdater.getFeedURL());
+      const feedURL = autoUpdater.getFeedURL();
+      log.info('Auto-updater feed URL:', feedURL);
+      console.log('Current app version:', appInfo.version);
+      console.log('Feed URL:', feedURL);
       
       // Check for updates
-      autoUpdater.checkForUpdates().catch((error) => {
+      autoUpdater.checkForUpdates().then((result) => {
+        log.info('Update check result:', result);
+        console.log('Update check result:', JSON.stringify(result, null, 2));
+        if (result && result.updateInfo) {
+          console.log('Update info:', JSON.stringify(result.updateInfo, null, 2));
+          log.info('Update info:', result.updateInfo);
+        }
+      }).catch((error) => {
         log.error('Error during manual update check:', error);
         console.error('Error during manual update check:', error);
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          code: error.code
+        });
         if (mainWindow) {
           mainWindow.webContents.send('update-status', { 
             status: 'error', 
