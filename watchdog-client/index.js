@@ -237,20 +237,34 @@ class WatchdogClient {
         lastUpdated: null
       };
 
-      // Get the user's home directory and construct the INI file path
+      // Get the user's home directory and try multiple possible paths
       const userHomeDir = os.homedir();
-      const iniFilePath = path.join(userHomeDir, 'KioCast', 'settings.ini');
+      const possiblePaths = [
+        path.join(userHomeDir, 'KioCast', 'settings.ini'),
+        path.join(userHomeDir, 'Kiocast', 'settings.ini'),
+        path.join(userHomeDir, 'kiocast', 'settings.ini'),
+        path.join(userHomeDir, 'KioCast', 'Settings.ini'),
+        path.join(userHomeDir, 'KioCast', 'SETTINGS.INI')
+      ];
       
-      console.log('Reading Kiocast info from:', iniFilePath);
-
-      // Check if the INI file exists
-      if (!fs.existsSync(iniFilePath)) {
-        console.log('Kiocast settings.ini file not found at:', iniFilePath);
+      let iniFilePath = null;
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(testPath)) {
+          iniFilePath = testPath;
+          console.log('Found Kiocast settings.ini at:', iniFilePath);
+          break;
+        }
+      }
+      
+      if (!iniFilePath) {
+        console.log('Kiocast settings.ini file not found. Tried paths:');
+        possiblePaths.forEach(p => console.log('  -', p));
         return result;
       }
 
       // Read the INI file
       const iniContent = fs.readFileSync(iniFilePath, 'utf8');
+      console.log('INI file content (first 500 chars):', iniContent.substring(0, 500));
       
       // Parse INI file content
       // INI format can be:
@@ -260,7 +274,9 @@ class WatchdogClient {
       // Key=Value
       
       // Simple INI parser - handles both formats
-      const lines = iniContent.split('\n');
+      const lines = iniContent.split(/\r?\n/); // Handle both \n and \r\n
+      const foundKeys = [];
+      
       for (const line of lines) {
         const trimmedLine = line.trim();
         
@@ -279,26 +295,33 @@ class WatchdogClient {
         if (match) {
           const key = match[1].trim();
           const value = match[2].trim();
+          foundKeys.push(key); // Track all keys found for debugging
           
           // Remove quotes if present
           const cleanValue = value.replace(/^["']|["']$/g, '');
           
-          // Match keys case-insensitively
-          if (key.toLowerCase() === 'version') {
+          // Match keys case-insensitively and try various name variations
+          const keyLower = key.toLowerCase();
+          if (keyLower === 'version' || keyLower === 'ver') {
             result.version = cleanValue;
-          } else if (key.toLowerCase() === 'screenkey') {
+            console.log(`Found Version: ${cleanValue}`);
+          } else if (keyLower === 'screenkey' || keyLower === 'screen_key' || keyLower === 'screen-key') {
             result.screenKey = cleanValue;
-          } else if (key.toLowerCase() === 'lastupdated') {
+            console.log(`Found ScreenKey: ${cleanValue}`);
+          } else if (keyLower === 'lastupdated' || keyLower === 'last_updated' || keyLower === 'last-updated' || keyLower === 'lastupdate') {
             result.lastUpdated = cleanValue;
+            console.log(`Found LastUpdated: ${cleanValue}`);
           }
         }
       }
       
+      console.log('All keys found in INI file:', foundKeys);
       console.log('Kiocast info retrieved from settings.ini:', result);
       return result;
     } catch (error) {
       // INI file might not exist or be unreadable if Kiocast is not installed
-      console.log('Kiocast info not available:', error.message);
+      console.log('Error reading Kiocast info:', error.message);
+      console.error('Full error:', error);
       return { version: null, screenKey: null, lastUpdated: null };
     }
   }
