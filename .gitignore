@@ -21,6 +21,9 @@ release/
 .env.test
 .env.production
 
+# GitHub token config (contains sensitive token)
+github-token.config.js
+
 # OS files
 .DS_Store
 Thumbs.db

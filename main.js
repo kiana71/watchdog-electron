@@ -38,14 +38,41 @@ if (process.platform === 'win32') {
   log.info('Configured basic silent Windows installer args for auto-updates');
 }
 
-// Configure GitHub repository for updates with more explicit settings
+// Configure GitHub repository for updates
+// Support both public and private repositories
+// For private repos, token can be provided via:
+// 1. Environment variable: GH_TOKEN
+// 2. Config file: github-token.config.js (gitignored)
+
+let githubToken = process.env.GH_TOKEN || '';
+
+// Try to load token from config file if not in environment variable
+if (!githubToken) {
+  try {
+    const tokenConfig = require('./github-token.config.js');
+    githubToken = tokenConfig.token || '';
+  } catch (error) {
+    // Config file doesn't exist or is invalid - that's okay, will use public mode
+    log.info('GitHub token config file not found, using public repository mode');
+  }
+}
+
+const isPrivateRepo = githubToken !== ''; // Use token if provided, assume private
+
 autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'kiana71',
   repo: 'watchdog-electron',
-  private: false,
-  releaseType: 'release'
+  private: isPrivateRepo,
+  releaseType: 'release',
+  ...(githubToken && { token: githubToken }) // Add token only if provided
 });
+
+if (isPrivateRepo) {
+  log.info('Auto-updater configured for PRIVATE GitHub repository with token authentication');
+} else {
+  log.info('Auto-updater configured for PUBLIC GitHub repository');
+}
 
 // Add more detailed logging for debugging
 log.info('Auto-updater configured for GitHub repository: kiana71/watchdog-electron');
