@@ -1,6 +1,6 @@
 {
   "name": "digital-signage-watchdog-app",
-  "version": "1.1.22",
+  "version": "1.1.23",
   "description": "Digital Signage Watchdog - Desktop monitoring application",
   "main": "main.js",
   "scripts": {
@@ -35,7 +35,7 @@
       "provider": "github",
       "owner": "kiana71",
       "repo": "watchdog-electron",
-      "private": false
+      "private": true
     },
     "files": [
       "**/*",

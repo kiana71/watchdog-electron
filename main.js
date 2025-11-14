@@ -43,8 +43,9 @@ autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'kiana71',
   repo: 'watchdog-electron',
-  private: false,
-  releaseType: 'release'
+  private: true,
+  releaseType: 'release',
+  token: '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'
 });
 
 // Add more detailed logging for debugging
