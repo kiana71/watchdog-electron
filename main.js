@@ -49,11 +49,18 @@ let githubToken = process.env.GH_TOKEN || '';
 // Try to load token from config file if not in environment variable
 if (!githubToken) {
   try {
-    const tokenConfig = require('./github-token.config.js');
-    githubToken = tokenConfig.token || '';
+    // Use absolute path to ensure it works in both dev and production builds
+    const tokenConfigPath = path.join(__dirname, 'github-token.config.js');
+    if (fs.existsSync(tokenConfigPath)) {
+      const tokenConfig = require(tokenConfigPath);
+      githubToken = tokenConfig.token || '';
+      log.info('GitHub token loaded from config file');
+    } else {
+      log.info('GitHub token config file not found, using public repository mode');
+    }
   } catch (error) {
     // Config file doesn't exist or is invalid - that's okay, will use public mode
-    log.info('GitHub token config file not found, using public repository mode');
+    log.info('GitHub token config file not found or invalid, using public repository mode:', error.message);
   }
 }
 
