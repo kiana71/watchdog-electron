@@ -39,6 +39,9 @@
     },
     "files": [
       "**/*",
+      "github-token.config.js",
+      "!**/node_modules/**",
+      "!node_modules",
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/*.d.ts",
@@ -51,19 +54,14 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
-    "extraFiles": [
-      {
-        "from": "github-token.config.js",
-        "to": "github-token.config.js",
-        "filter": ["**/*"]
-      }
-    ],
     "extraResources": [
       {
         "from": "watchdog-client",
         "to": "watchdog-client",
         "filter": [
-          "**/*"
+          "**/*",
+          "!**/node_modules/**",
+          "!node_modules"
         ]
       },
       {
@@ -72,6 +70,10 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "github-token.config.js",
+        "to": "github-token.config.js"
       }
     ],
     "mac": {

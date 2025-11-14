@@ -63,15 +63,27 @@ if (!githubToken) {
       // Also try app.getAppPath() in case __dirname is different in production
       const appPath = app.getAppPath();
       const altTokenPath = path.join(appPath, 'github-token.config.js');
-      log.info('Trying alternative path:', altTokenPath);
       
+      // Also try resources folder (if file was copied via extraResources)
+      const resourcesPath = process.resourcesPath;
+      const resourcesTokenPath = path.join(resourcesPath, 'github-token.config.js');
+      
+      log.info('Trying alternative paths:', { altTokenPath, resourcesTokenPath });
+      
+      let foundPath = null;
       if (fs.existsSync(altTokenPath)) {
-        const tokenConfig = require(altTokenPath);
+        foundPath = altTokenPath;
+      } else if (fs.existsSync(resourcesTokenPath)) {
+        foundPath = resourcesTokenPath;
+      }
+      
+      if (foundPath) {
+        const tokenConfig = require(foundPath);
         githubToken = tokenConfig.token || '';
-        log.info('GitHub token loaded from alternative path');
+        log.info('GitHub token loaded from alternative path:', foundPath);
       } else {
-        log.info('GitHub token config file not found at either path, using public repository mode');
-        log.info('Checked paths:', [tokenConfigPath, altTokenPath]);
+        log.info('GitHub token config file not found at any path, using public repository mode');
+        log.info('Checked paths:', [tokenConfigPath, altTokenPath, resourcesTokenPath]);
       }
     }
   } catch (error) {
