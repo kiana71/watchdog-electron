@@ -21,7 +21,10 @@ release/
 .env.test
 .env.production
 
-# GitHub token config (contains sensitive token)
+# Token files (never commit these!)
+*token*.js
+*token*.json
+*token*.config.js
 github-token.config.js
 
 # OS files

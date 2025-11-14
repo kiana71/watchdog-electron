@@ -38,76 +38,14 @@ if (process.platform === 'win32') {
   log.info('Configured basic silent Windows installer args for auto-updates');
 }
 
-// Configure GitHub repository for updates
-// Support both public and private repositories
-// For private repos, token can be provided via:
-// 1. Environment variable: GH_TOKEN
-// 2. Config file: github-token.config.js (gitignored)
-
-let githubToken = process.env.GH_TOKEN || '';
-
-// Try to load token from config file if not in environment variable
-if (!githubToken) {
-  try {
-    // Use absolute path to ensure it works in both dev and production builds
-    // In production, __dirname points to resources/app, so file should be there
-    const tokenConfigPath = path.join(__dirname, 'github-token.config.js');
-    log.info('Looking for token config at:', tokenConfigPath);
-    log.info('__dirname is:', __dirname);
-    
-    if (fs.existsSync(tokenConfigPath)) {
-      const tokenConfig = require(tokenConfigPath);
-      githubToken = tokenConfig.token || '';
-      log.info('GitHub token loaded from config file');
-    } else {
-      // Also try app.getAppPath() in case __dirname is different in production
-      const appPath = app.getAppPath();
-      const altTokenPath = path.join(appPath, 'github-token.config.js');
-      
-      // Also try resources folder (if file was copied via extraResources)
-      const resourcesPath = process.resourcesPath;
-      const resourcesTokenPath = path.join(resourcesPath, 'github-token.config.js');
-      
-      log.info('Trying alternative paths:', { altTokenPath, resourcesTokenPath });
-      
-      let foundPath = null;
-      if (fs.existsSync(altTokenPath)) {
-        foundPath = altTokenPath;
-      } else if (fs.existsSync(resourcesTokenPath)) {
-        foundPath = resourcesTokenPath;
-      }
-      
-      if (foundPath) {
-        const tokenConfig = require(foundPath);
-        githubToken = tokenConfig.token || '';
-        log.info('GitHub token loaded from alternative path:', foundPath);
-      } else {
-        log.info('GitHub token config file not found at any path, using public repository mode');
-        log.info('Checked paths:', [tokenConfigPath, altTokenPath, resourcesTokenPath]);
-      }
-    }
-  } catch (error) {
-    // Config file doesn't exist or is invalid - that's okay, will use public mode
-    log.info('GitHub token config file not found or invalid, using public repository mode:', error.message);
-  }
-}
-
-const isPrivateRepo = githubToken !== ''; // Use token if provided, assume private
-
+// Configure GitHub repository for updates with more explicit settings
 autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'kiana71',
   repo: 'watchdog-electron',
-  private: isPrivateRepo,
-  releaseType: 'release',
-  ...(githubToken && { token: githubToken }) // Add token only if provided
+  private: false,
+  releaseType: 'release'
 });
-
-if (isPrivateRepo) {
-  log.info('Auto-updater configured for PRIVATE GitHub repository with token authentication');
-} else {
-  log.info('Auto-updater configured for PUBLIC GitHub repository');
-}
 
 // Add more detailed logging for debugging
 log.info('Auto-updater configured for GitHub repository: kiana71/watchdog-electron');
